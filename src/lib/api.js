@@ -39,7 +39,7 @@ function sesionExpirada() {
   }
 }
 
-const API_DIRECTA = (import.meta.env.VITE_API_DIRECT_URL || 'https://radicados-intecoal-sas.onrender.com').replace(/\/+$/, '');
+const API_DIRECTA = (import.meta.env.VITE_API_DIRECT_URL || 'https://entrega-proyectos-intecoal.onrender.com').replace(/\/+$/, '');
 const SUBIDA_DIRECTA_DESDE = 4 * 1024 * 1024;
 
 function bytesFormData(body) {

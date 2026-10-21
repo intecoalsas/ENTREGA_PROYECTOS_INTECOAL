@@ -12,9 +12,9 @@ El repositorio ya incluye los archivos de despliegue:
 
 | Pieza | URL |
 |-------|-----|
-| Frontend (Netlify) | `https://entregadeproyectos.netlify.app` |
-| Backend (Render) | `https://radicados-intecoal-sas.onrender.com` |
-| Proxy de API | `https://entregadeproyectos.netlify.app/api/*` → Render (redirect con `force = true` en `netlify.toml`) |
+| Frontend (Netlify) | `https://entrega-de-proyectos.netlify.app` |
+| Backend (Render) | `https://entrega-proyectos-intecoal.onrender.com` |
+| Proxy de API | `https://entrega-de-proyectos.netlify.app/api/*` → Render (redirect con `force = true` en `netlify.toml`) |
 
 > Si cambias el nombre del sitio en Netlify, actualiza **a la vez**: `VITE_MSAL_REDIRECT_URI` (Netlify), la URI de redirección registrada en la app de Azure AD y `FRONTEND_URL` / `ALLOWED_ORIGINS` (Render). Un cambio solo de CORS hace fallar `/api/*` en el navegador.
 
@@ -54,7 +54,7 @@ Agregar en **Environment**:
 
 ```bash
 SECRET_KEY=<generar-con-python-secrets>
-FRONTEND_URL=https://<tu-sitio>.netlify.app
+FRONTEND_URL=https://entrega-de-proyectos.netlify.app
 ALLOWED_ORIGINS=<origenes separados por coma o *>
 
 AZURE_CLIENT_ID=<client-id>
@@ -88,7 +88,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ### Verificar
 
 ```bash
-curl https://<tu-app>.onrender.com/api/health
+curl https://entrega-proyectos-intecoal.onrender.com/api/health
 # {"status":"ok","timestamp":"..."}
 ```
 
@@ -96,7 +96,7 @@ curl https://<tu-app>.onrender.com/api/health
 
 ## Despliegue del Frontend en Netlify
 
-El `netlify.toml` ya define el build y el proxy de la API. La URL de producción del backend es **`https://radicados-intecoal-sas.onrender.com`** (es el `to` del redirect del `netlify.toml`).
+El `netlify.toml` ya define el build y el proxy de la API. La URL de producción del backend es **`https://entrega-proyectos-intecoal.onrender.com`** (es el `to` del redirect del `netlify.toml`).
 
 ### 1. Config (en `netlify.toml`)
 
@@ -107,7 +107,7 @@ El `netlify.toml` ya define el build y el proxy de la API. La URL de producción
 
 [[redirects]]
   from = "/api/*"
-  to = "https://radicados-intecoal-sas.onrender.com/api/:splat"
+  to = "https://entrega-proyectos-intecoal.onrender.com/api/:splat"
   status = 200
   force = true
 
@@ -131,8 +131,8 @@ El `netlify.toml` ya define el build y el proxy de la API. La URL de producción
 ```bash
 VITE_MSAL_CLIENT_ID=<client-id-de-azure-ad>
 VITE_MSAL_TENANT_ID=common
-VITE_MSAL_REDIRECT_URI=https://<tu-sitio>.netlify.app
-VITE_API_DIRECT_URL=https://radicados-intecoal-sas.onrender.com   # opcional: subidas pesadas directas al backend (se usa esta URL por defecto)
+VITE_MSAL_REDIRECT_URI=https://entrega-de-proyectos.netlify.app
+VITE_API_DIRECT_URL=https://entrega-proyectos-intecoal.onrender.com   # opcional: subidas pesadas directas al backend (se usa esta URL por defecto)
 ```
 
 > `VITE_MSAL_REDIRECT_URI` en producción debe coincidir exactamente con la URI de redirección registrada en la app de Azure AD.
@@ -153,7 +153,7 @@ Se puede añadir en un archivo `public/_redirects` o como redirect en Netlify. S
 2. Agregar dominio: `portal.intecoalsas.com`.
 3. DNS:
    ```
-   CNAME  portal  →  <tu-sitio>.netlify.app
+   CNAME  portal  →  entrega-de-proyectos.netlify.app
    ```
 
 ---
@@ -221,4 +221,4 @@ Comprobación rápida de CORS desde la consola del navegador: si `lista` está b
 ### Subidas grandes fallan (DWG/DXF pesados)
 **Síntoma:** la subida se corta sin mensaje claro o responde `500`.
 **Causas reales:** en producción el proxy de Netlify corta peticiones **> 26 s** y limita el POST que lo atraviesa; el backend escribe por bloques pero puede agotar memoria o disco en Render (plan gratuito).
-**Solución:** el frontend envía **directo a Render** (`VITE_API_DIRECT_URL`, por defecto `https://radicados-intecoal-sas.onrender.com`) las subidas pesadas, saltándose el proxy; solo en producción. Si un archivo igual falla con `500`, el cuerpo de la respuesta trae el motivo exacto (p. ej. `OSError: No space left on device`) y el traceback aparece en **Render → Logs**. Verifique también que `FRONTEND_URL`/`ALLOWED_ORIGINS` en Render incluyan la URL del sitio (CORS).
+**Solución:** el frontend envía **directo a Render** (`VITE_API_DIRECT_URL`, por defecto `https://entrega-proyectos-intecoal.onrender.com`) las subidas pesadas, saltándose el proxy; solo en producción. Si un archivo igual falla con `500`, el cuerpo de la respuesta trae el motivo exacto (p. ej. `OSError: No space left on device`) y el traceback aparece en **Render → Logs**. Verifique también que `FRONTEND_URL`/`ALLOWED_ORIGINS` en Render incluyan la URL del sitio (CORS).

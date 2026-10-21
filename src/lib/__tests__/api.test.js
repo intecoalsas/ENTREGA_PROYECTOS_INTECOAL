@@ -53,7 +53,7 @@ describe('apiFetch — JWT y expiración (caja blanca)', () => {
 });
 
 describe('urlDeApi — subida directa al backend para archivos pesados', () => {
-  const API = 'https://radicados-intecoal-sas.onrender.com';
+  const API = 'https://entrega-proyectos-intecoal.onrender.com';
 
   function formDataCon(bytes) {
     const fd = new FormData();

@@ -68,7 +68,7 @@ Reglas de acceso en el frontend:
 El backend configura CORS de forma restringida (no `*` en producción).
 
 ```python
-FRONTEND_URL = os.getenv("FRONTEND_URL")  # https://<tu-sitio>.netlify.app
+FRONTEND_URL = os.getenv("FRONTEND_URL")  # https://entrega-de-proyectos.netlify.app
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
 # métodos: GET, POST, PATCH, DELETE, OPTIONS
 ```
@@ -140,7 +140,7 @@ application/acad, application/octet-stream
 
 ```bash
 SECRET_KEY=<aleatoria-32+>
-FRONTEND_URL=https://<tu-sitio>.netlify.app
+FRONTEND_URL=https://entrega-de-proyectos.netlify.app
 ALLOWED_ORIGINS=<origenes separados por coma>
 
 AZURE_CLIENT_ID=<client-id>
@@ -162,8 +162,8 @@ POWER_AUTOMATE_WEBHOOK_URL=<webhook-url>   # opcional
 ```bash
 VITE_MSAL_CLIENT_ID=<client-id>
 VITE_MSAL_TENANT_ID=common
-VITE_MSAL_REDIRECT_URI=https://<tu-sitio>.netlify.app
-VITE_API_DIRECT_URL=https://radicados-intecoal-sas.onrender.com   # opcional: subidas pesadas directas al backend
+VITE_MSAL_REDIRECT_URI=https://entrega-de-proyectos.netlify.app
+VITE_API_DIRECT_URL=https://entrega-proyectos-intecoal.onrender.com   # opcional: subidas pesadas directas al backend
 ```
 
 ---

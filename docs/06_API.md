@@ -1,7 +1,7 @@
 # Referencia API REST
 
 - **Base URL (desarrollo):** `http://localhost:8000` (el frontend de Vite proxifica `/api/*` a esta URL).
-- **Base URL (producción):** `https://radicados-intecoal-sas.onrender.com`
+- **Base URL (producción):** `https://entrega-proyectos-intecoal.onrender.com`
 
 Todos los endpoints de negocio viven bajo el prefijo `/api`.
 
