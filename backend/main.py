@@ -370,6 +370,11 @@ async def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+@app.get("/", include_in_schema=False)
+async def raiz():
+    return {"status": "ok", "service": "radicados-intecoal-api", "health": "/api/health"}
+
+
 @app.get("/api/documentos/catalogo")
 async def obtener_catalogo():
     return {"data": CATALOGO_21_DOCUMENTOS, "total": len(CATALOGO_21_DOCUMENTOS)}
