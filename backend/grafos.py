@@ -550,8 +550,7 @@ class GraphService:
         cuerpo = self._plantilla_correo("INTECOAL SAS — Radicado Registrado", interno, municipio)
         adj = self._adjunto_logo(municipio)
         await self._enviar_correo(destino, asunto, cuerpo, [adj] if adj else None,
-                                  self._copia_municipio(municipio, destino),
-                                  self._remitente_municipio(municipio))
+                                  remitente=self._remitente_municipio(municipio))
 
     async def enviar_correo_estado(self, radicacion, estado_anterior, observaciones):
         meta = radicacion["metadata"]
@@ -575,8 +574,7 @@ class GraphService:
         cuerpo = self._plantilla_correo("INTECOAL SAS — Resultado de Evaluación", interno, municipio)
         adj = self._adjunto_logo(municipio)
         await self._enviar_correo(destino, asunto, cuerpo, [adj] if adj else None,
-                                  self._copia_municipio(municipio, destino),
-                                  self._remitente_municipio(municipio))
+                                  remitente=self._remitente_municipio(municipio))
 
     async def enviar_correo_reesubido_revisor(self, radicacion):
         destino = self._revisor_email()
@@ -618,8 +616,7 @@ class GraphService:
         cuerpo = self._plantilla_correo("INTECOAL SAS — Radicado Actualizado", interno, municipio)
         adj = self._adjunto_logo(municipio)
         await self._enviar_correo(destino, asunto, cuerpo, [adj] if adj else None,
-                                  self._copia_municipio(municipio, destino),
-                                  self._remitente_municipio(municipio))
+                                  remitente=self._remitente_municipio(municipio))
 
     @staticmethod
     def _dias_txt(cantidad):
