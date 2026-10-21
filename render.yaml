@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: portal-intecoal-api
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: AZURE_CLIENT_ID
+        sync: false
+      - key: AZURE_TENANT_ID
+        sync: false
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: SHAREPOINT_SITE_ID
+        sync: false
+      - key: SHAREPOINT_LIST_ID
+        sync: false
+      - key: SHAREPOINT_LIBRARY_ID
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: M365_SENDER_EMAIL
+        sync: false
+      - key: M365_NOTIFICATION_RECIPIENT
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "*"

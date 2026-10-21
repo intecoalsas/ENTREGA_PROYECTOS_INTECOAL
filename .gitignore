@@ -1,0 +1,49 @@
+# Dependencias
+node_modules/
+.venv/
+backend/.venv/
+
+# Build
+build/
+dist/
+coverage/
+
+# Archivos de entorno (NUNCA subir credenciales)
+.env
+.env.local
+.env.production
+.env*.local
+!.env.example
+backend/.env
+backend/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Sistema
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+uvicorn.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads temporales
+backend/uploads/
+
+# Archivos del sistema
+.DS_Store
+._*
