@@ -89,6 +89,9 @@ class GraphService:
 
     RAIZ = "Documentos_Radicacion"
 
+    BACKUP_CARPETA = "Portal_BaseDeDatos"
+    BACKUP_ARCHIVO = "radicaciones_backup.json"
+
     SUBCARPETAS = [
         "A_Tecnicos", "B_Certificaciones", "C_Contractuales",
         "D_Inventario", "E_Otros", "F_Documentos_Adicionales",
@@ -252,6 +255,28 @@ class GraphService:
         except Exception as e:
             print(f"[GRAPH] Excepcion subiendo archivo grande {rel_path}: {e}")
             return False
+
+    async def subir_backup_db(self, contenido: bytes) -> bool:
+        token = await self._obtener_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base = await self._drive_url()
+        rel = f"{self.BACKUP_CARPETA}/{self.BACKUP_ARCHIVO}"
+        async with httpx.AsyncClient(timeout=120.0) as cliente:
+            await self._asegurar_carpeta(cliente, headers, base, "", self.BACKUP_CARPETA)
+            return await self._subir_contenido(cliente, headers, base, rel, contenido)
+
+    async def descargar_backup_db(self):
+        token = await self._obtener_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base = await self._drive_url()
+        rel = f"{self.BACKUP_CARPETA}/{self.BACKUP_ARCHIVO}"
+        url = f"{base}/root:/{rel}:/content"
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as cliente:
+            resp = await cliente.get(url, headers=headers)
+            if resp.status_code == 200 and resp.content:
+                return resp.content
+            print(f"[GRAPH] Respaldo de BD no disponible ({resp.status_code}): {rel}")
+            return None
 
     async def _subir_archivos(self, radicacion, codigo):
         token = await self._obtener_token()
@@ -677,7 +702,7 @@ class GraphService:
             )
 
         interno = (
-            "<p style='margin:0 0 8px 0;'>Resumen único de plazos de revisión (15 días hábiles) "
+            "<p style='margin:0 0 8px 0;'>Resumen único de plazos de revisión (15 días) "
             f"con <strong>{_cnt(n_venc)} vencido(s)</strong> y <strong>{_cnt(n_por)} por vencer</strong>:</p>"
             + "".join(secciones)
             + "<p style='font-size:12px;color:#666;'>Evalue los radicados listados y, si aplica, suba el Formato 4.3.7 C y el Recibo Técnico. "

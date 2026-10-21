@@ -90,7 +90,7 @@ Este manual le enseña a revisar expedientes, emitir dictámenes y generar los f
 ## 9. Usar el Calendario
 
 1. Abra **Calendario** en el menú de la izquierda.
-2. Cada radicado tiene 15 días hábiles desde que se creó; el calendario los cuenta solo.
+2. Cada radicado tiene 15 días de calendario desde que se creó (el día de radicación cuenta como día 1); el calendario los cuenta solo.
 3. Cada bolita es una fecha clave: azul se creó, amarilla faltan 8 días, roja faltan 4, morada se venció, verde se aprobó.
 4. Pulse una fecha para ver el radicado completo y saltar a Evaluar o al Informe.
 5. A la derecha tiene **dos listas del mismo tamaño**, una debajo de la otra, cada una con su propia barra de desplazamiento vertical:

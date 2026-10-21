@@ -4,7 +4,7 @@ Sistema de gestión de radicación de expedientes técnicos para la **verificaci
 
 El portal permite al **contratista** radicar los 25 requisitos RETILAP, y al **revisor (interventoría)** evaluarlos, emitir dictamen y generar el **Informe de Recibido a Conformidad**, con firma electrónica, notificaciones por correo y persistencia en **SharePoint** de Microsoft 365.
 
-Módulos del revisor: **Evaluación**, **Formato 4.3.7 C**, **Recibo Técnico** y **Calendario** de plazos de revisión (15 días hábiles con alertas), con las listas **Próximos a vencer** y **Vencidos** y correos automáticos diarios cuando un radicado pasa de plazo.
+Módulos del revisor: **Evaluación**, **Formato 4.3.7 C**, **Recibo Técnico** y **Calendario** de plazos de revisión (15 días de calendario con alertas), con las listas **Próximos a vencer** y **Vencidos** y correos automáticos diarios cuando un radicado pasa de plazo.
 
 ## Stack
 

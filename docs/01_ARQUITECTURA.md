@@ -32,8 +32,8 @@
 portal_intecoal/
 ├── backend/
 │   ├── main.py               # API FastAPI (endpoints, CORS, JWT, MIME, archivado, watcher)
-│   ├── modelos.py            # Catálogo de 25 docs RETILAP, estados, días hábiles, helpers
-│   ├── grafos.py             # GraphService: SharePoint + correo + Graph API
+│   ├── modelos.py            # Catálogo de 25 docs RETILAP, estados, plazos de revisión, helpers
+│   ├── grafos.py             # GraphService: SharePoint + correo + Graph API + respaldo de la BD
 │   ├── requirements.txt      # Dependencias Python
 │   ├── data/radicaciones.json# Persistencia local de radicaciones
 │   └── uploads/              # Archivos subidos por radicado
@@ -51,7 +51,7 @@ portal_intecoal/
 │   │   ├── Formato437C.jsx           # Formato 4.3.7 C (revisor, por radicado)
 │   │   ├── ReciboTecnico.jsx         # Recibo Técnico (revisor, por radicado)
 │   │   ├── MembreteCorporativo.jsx   # Membrete + franja (#4E3629/#D9CF43) compartidos
-│   │   ├── CalendarioRevision.jsx    # Calendario de plazos 15 días hábiles (revisor) + listas "Próximos a vencer" y "Vencidos"
+│   │   ├── CalendarioRevision.jsx    # Calendario de plazos 15 días (revisor) + listas "Próximos a vencer" y "Vencidos"
 │   │   ├── DocumentPreviewModal.jsx  # Visor PDF/imagen/DXF/DWG
 │   │   ├── CadViewerLazy.jsx         # Visor CAD (DXF) vía @cadview/react
 │   │   ├── FirmaDigitalModal.jsx     # Firma electrónica (dibujar/texto/imagen)

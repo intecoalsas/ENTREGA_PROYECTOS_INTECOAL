@@ -65,7 +65,7 @@ def fecha_limite_revision(fecha_radicacion_iso):
     f = _solo_fecha(fecha_radicacion_iso)
     if not f:
         return None
-    return sumar_dias_habiles(f, 15)
+    return f + timedelta(days=14)
 
 
 def dias_habiles_restantes(fecha_limite, hoy=None):

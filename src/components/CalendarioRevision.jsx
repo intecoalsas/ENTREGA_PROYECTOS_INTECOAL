@@ -32,17 +32,9 @@ const soloFecha = (v) => {
   const d = new Date(v);
   return isNaN(d) ? null : new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 };
-const esHabil = (d) => {
-  const g = d.getUTCDay();
-  return g !== 0 && g !== 6;
-};
-const sumarHabiles = (fecha, n) => {
+const sumarDias = (fecha, n) => {
   const d = aMedianocheUTC(fecha);
-  let c = 0;
-  while (c < n) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    if (esHabil(d)) c++;
-  }
+  d.setUTCDate(d.getUTCDate() + n);
   return d;
 };
 const diasExactos = (desde, hasta) =>
@@ -81,7 +73,7 @@ export const CalendarioRevision = ({
   const info = useMemo(() => filings.filter(Boolean).map(f => {
     const creacion = soloFecha(f.fechaRadicacion);
     if (!creacion) return null;
-    const limite = sumarHabiles(creacion, 15);
+    const limite = sumarDias(creacion, 14);
     const aprob = fechaAprobacion(f);
     const restantes = diasExactos(hoy, limite);
     return {
@@ -223,7 +215,7 @@ export const CalendarioRevision = ({
           </div>
           <div>
             <span className="inline-block bg-[#D9CF43]/20 text-[#D9CF43] text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-[#D9CF43]/40">
-              Plazos de revisión · 15 días hábiles
+              Plazos de revisión · 15 días
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-white mt-1">
               Calendario de Radicaciones

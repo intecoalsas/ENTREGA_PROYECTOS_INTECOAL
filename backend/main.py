@@ -129,11 +129,50 @@ radicaciones_db = []
 graph_service = None
 
 
+BACKUP_RETARDO = 2.0
+_backup_pendiente = False
+_backup_activo = False
+
+
 def guardar_db():
     try:
         DATA_FILE.write_text(json.dumps(radicaciones_db, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         print(f"[DB] Error guardando: {e}")
+        return
+    programar_backup()
+
+
+def programar_backup():
+    global _backup_pendiente, _backup_activo
+    if not graph_service:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    _backup_pendiente = True
+    if _backup_activo:
+        return
+    _backup_activo = True
+    loop.create_task(ciclo_backup())
+
+
+async def ciclo_backup():
+    global _backup_pendiente, _backup_activo
+    try:
+        while _backup_pendiente:
+            _backup_pendiente = False
+            await asyncio.sleep(BACKUP_RETARDO)
+            try:
+                contenido = DATA_FILE.read_bytes()
+                ok = await graph_service.subir_backup_db(contenido)
+                if ok:
+                    print(f"[BACKUP] Respaldo de {len(contenido)} bytes subido a SharePoint")
+            except Exception as e:
+                print(f"[BACKUP] Error subiendo respaldo: {e}")
+    finally:
+        _backup_activo = False
 
 
 def cargar_db():
@@ -232,6 +271,35 @@ async def vigilar_vencimientos():
         await asyncio.sleep(3600)
 
 
+async def restaurar_backup_sharepoint():
+    if not graph_service:
+        return 0
+    contenido = None
+    for attempt in range(3):
+        try:
+            contenido = await graph_service.descargar_backup_db()
+            break
+        except Exception as e:
+            print(f"[STARTUP] ERROR descargando respaldo (intento {attempt+1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(3 * (attempt + 1))
+    if not contenido:
+        print("[STARTUP] Sin respaldo de BD en SharePoint")
+        return 0
+    try:
+        datos = json.loads(contenido.decode("utf-8"))
+    except Exception as e:
+        print(f"[STARTUP] Respaldo de BD ilegible: {e}")
+        return 0
+    if not isinstance(datos, list) or not datos:
+        print("[STARTUP] Respaldo de BD vacío o inválido: se ignora")
+        return 0
+    radicaciones_db.extend(datos)
+    guardar_db()
+    print(f"[STARTUP] OK: {len(datos)} radicaciones restauradas desde el respaldo de SharePoint")
+    return len(datos)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global graph_service
@@ -247,27 +315,38 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"[STARTUP] No se pudo verificar columna RawJson: {e}")
         if len(radicaciones_db) == 0:
-            print("[STARTUP] DB local vacía, intentando cargar desde SharePoint...")
-            for attempt in range(3):
-                try:
-                    sp_rads = await graph_service.cargar_radicaciones_desde_sharepoint()
-                    if sp_rads:
-                        radicaciones_db.extend(sp_rads)
-                        guardar_db()
-                        print(f"[STARTUP] OK: {len(sp_rads)} radicaciones cargadas desde SharePoint")
-                    else:
-                        print("[STARTUP] SharePoint devolvió 0 radicaciones")
-                    break
-                except Exception as e:
-                    print(f"[STARTUP] ERROR cargando de SharePoint (intento {attempt+1}/3): {e}")
-                    if attempt < 2:
-                        await asyncio.sleep(3 * (attempt + 1))
+            print("[STARTUP] DB local vacía, intentando restaurar respaldo completo desde SharePoint...")
+            restaurados = await restaurar_backup_sharepoint()
+            if restaurados == 0:
+                print("[STARTUP] Sin respaldo completo; intentando cargar desde la lista de SharePoint...")
+                for attempt in range(3):
+                    try:
+                        sp_rads = await graph_service.cargar_radicaciones_desde_sharepoint()
+                        if sp_rads:
+                            radicaciones_db.extend(sp_rads)
+                            guardar_db()
+                            print(f"[STARTUP] OK: {len(sp_rads)} radicaciones cargadas desde SharePoint")
+                        else:
+                            print("[STARTUP] SharePoint devolvió 0 radicaciones")
+                        break
+                    except Exception as e:
+                        print(f"[STARTUP] ERROR cargando de SharePoint (intento {attempt+1}/3): {e}")
+                        if attempt < 2:
+                            await asyncio.sleep(3 * (attempt + 1))
         else:
             print(f"[STARTUP] DB local tiene {len(radicaciones_db)} radicaciones, omitiendo carga SP")
     else:
         print("[STARTUP] GraphService NO DISPONIBLE - grafos.py no importado")
     asyncio.create_task(vigilar_vencimientos())
     yield
+    if _backup_pendiente and graph_service:
+        try:
+            contenido = DATA_FILE.read_bytes()
+            ok = await asyncio.wait_for(graph_service.subir_backup_db(contenido), timeout=30)
+            if ok:
+                print("[BACKUP] Respaldo final subido al cerrar el servicio")
+        except Exception as e:
+            print(f"[BACKUP] Error en respaldo final al cerrar: {e}")
 
 
 app = FastAPI(title="Portal INTECOAL - Radicación Técnica", lifespan=lifespan)

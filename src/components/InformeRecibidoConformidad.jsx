@@ -22,8 +22,7 @@ import {
   CheckCheck,
   Hash
 } from 'lucide-react';
-import { MembreteRecibo, FranjaCorporativa, FIRMA_NOMBRE_JEFE, FIRMA_CARGO_JEFE } from './MembreteCorporativo';
-import { FIRMA_JEFE } from '../lib/imagenesMembrete';
+import { MembreteRecibo, FranjaCorporativa } from './MembreteCorporativo';
 import { FirmaDigitalModal } from './FirmaDigitalModal';
 
 export const InformeRecibidoConformidad = ({ 
@@ -585,7 +584,7 @@ export const InformeRecibidoConformidad = ({
 
         
         <div className="pt-6 space-y-6 page-break-avoid">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
             <FirmaLimpia
               firma={filing.metadata.firmaInterventoria}
               nombre={filing.metadata.firmaInterventoria?.nombreSignatario || filing.metadata.responsableRevision || 'Responsable de Revisión'}
@@ -595,11 +594,6 @@ export const InformeRecibidoConformidad = ({
               firma={filing.metadata.firmaContratista}
               nombre={filing.metadata.firmaContratista?.nombreSignatario || filing.metadata.responsable}
               cargo={filing.metadata.firmaContratista?.cargo || 'Representante Técnico Contratista'}
-            />
-            <FirmaLimpia
-              firma={{ dataUrl: FIRMA_JEFE }}
-              nombre={FIRMA_NOMBRE_JEFE}
-              cargo={FIRMA_CARGO_JEFE}
             />
           </div>
         </div>

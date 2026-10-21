@@ -21,5 +21,16 @@ async def _columnas_ok(self):
     return None
 
 
+async def _sin_backup_subir(self, contenido):
+    return False
+
+
+async def _sin_backup_descargar(self):
+    return None
+
+
 G.GraphService.cargar_radicaciones_desde_sharepoint = _sin_sharepoint
 G.GraphService.asegurar_columna_rawjson = _columnas_ok
+G.GraphService.subir_backup_db = _sin_backup_subir
+G.GraphService.descargar_backup_db = _sin_backup_descargar
+M.BACKUP_RETARDO = 0.0

@@ -144,7 +144,7 @@ export const MANUAL_REVISOR = {
       titulo: 'Usar el Calendario',
       pasos: [
         'Abra Calendario en el menú de la izquierda.',
-        'Cada radicado tiene 15 días hábiles desde que se creó; el calendario los cuenta solo.',
+        'Cada radicado tiene 15 días de calendario desde que se creó (el día de radicación cuenta como día 1); el calendario los cuenta solo.',
         'Cada bolita es una fecha clave: azul se creó, amarilla faltan 8 días, roja faltan 4, morada se venció, verde se aprobó.',
         'Pulse una fecha para ver el radicado completo y saltar a Evaluar o al Informe.',
         'A la derecha tiene la lista de próximos a vencer, del más urgente al menos urgente.',

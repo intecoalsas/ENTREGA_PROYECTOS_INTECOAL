@@ -8,8 +8,6 @@ from backend.modelos import (
     fecha_limite_revision,
     dias_restantes,
     dias_habiles_entre,
-    es_dia_habil,
-    sumar_dias_habiles,
     estado_semaforo,
     _solo_fecha,
 )
@@ -63,16 +61,18 @@ def _creacion_con_restantes(hoy, objetivo):
         assert (hoy - d).days < 400, "no se encontró fecha"
 
 
-def test_limite_salta_fin_de_semana():
-    limite = fecha_limite_revision("2026-09-04T10:00:00+00:00")  
-    assert es_dia_habil(limite)
-    assert dias_habiles_entre(date(2026, 9, 4), limite) == 15
+def test_limite_es_15_dias_corridos():
+    limite = fecha_limite_revision("2026-09-04T10:00:00+00:00")
+    assert limite == date(2026, 9, 18)
+    assert dias_restantes(limite, date(2026, 9, 4)) == 14
+    assert dias_restantes(limite, date(2026, 9, 18)) == 0
+    assert dias_restantes(limite, date(2026, 9, 19)) == -1
 
 
 def test_limite_lunes_arranca_bien():
-    limite = fecha_limite_revision("2026-09-28T10:00:00+00:00")  
-    assert limite == date(2026, 10, 19)
-    assert dias_habiles_entre(date(2026, 9, 28), limite) == 15
+    limite = fecha_limite_revision("2026-09-28T10:00:00+00:00")
+    assert limite == date(2026, 10, 12)
+    assert dias_restantes(limite, date(2026, 9, 28)) == 14
 
 
 def test_restantes_en_fecha_limite_y_vencido():

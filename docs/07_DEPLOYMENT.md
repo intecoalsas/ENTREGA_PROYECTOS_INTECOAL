@@ -216,7 +216,8 @@ Comprobación rápida de CORS desde la consola del navegador: si `lista` está b
 
 ### Se perdieron radicados creados en producción
 **Causa:** Render (plan gratuito) **no tiene disco persistente** — `render.yaml` no declara `disks`, así que el archivo `backend/data/radicaciones.json` vuelve al estado del repositorio en **cada redespliegue o reinicio**.
-**Solución:** respaldar/crear los radicados donde sí persisten (SharePoint, que es la fuente oficial al aprobar), o montar un disco persistente en Render y mover `DATA_FILE` ahí.
+**Solución automática (activa):** en **cada guardado** el backend sube `radicaciones.json` como respaldo al archivo `Portal_BaseDeDatos/radicaciones_backup.json` en SharePoint; al arrancar con la base vacía, **restaura todos los radicados** (aprobados y pendientes, con historial, evaluación y firmas) antes de intentar la carga por lista. El respaldo ocurre en background con coalescencia (2 s) y un envío final al cerrar el servicio; si SharePoint falla en un guardado, se reintenta en el siguiente.
+**Solución definitiva (opcional):** montar un disco persistente en Render (plan Starter) y mover `DATA_FILE` ahí. Recuerda que la subida de carpetas/archivos a SharePoint sigue ocurriendo **solo al aprobar**; el archivo de respaldo es una copia interna de la base, no un radicado.
 
 ### Subidas grandes fallan (DWG/DXF pesados)
 **Síntoma:** la subida se corta sin mensaje claro o responde `500`.
