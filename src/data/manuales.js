@@ -4,7 +4,7 @@ export const MANUAL_META = {
   producto: 'Portal de Radicación INTECOAL S.A.S.',
   version: '1.0',
   soporteCorreo: 'coord.tecnico@intecoalsas.com',
-  soporteTelefono: '310 355 6449 / (602) 224 8763',
+  soporteTelefono: '301 5840537 / (602) 224 8763',
 };
 
 export const MANUAL_COMUN = {
@@ -178,6 +178,6 @@ export const MANUAL_REVISOR = {
 
 export const MANUAL_SOPORTE = [
   'Correo: coord.tecnico@intecoalsas.com',
-  'Teléfonos: 310 355 6449 / (602) 224 8763',
+  'Teléfonos: 301 5840537 / (602) 224 8763',
   'Diga siempre su número de radicado y qué mensaje le salió.',
 ];

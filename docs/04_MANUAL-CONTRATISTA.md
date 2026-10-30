@@ -136,5 +136,5 @@ No lo haga: con otro correo sus radicados no aparecen.
 ## 12. Soporte y contacto
 
 - Correo: coord.tecnico@intecoalsas.com
-- Teléfonos: 310 355 6449 / (602) 224 8763
+- Teléfonos: 301 5840537 / (602) 224 8763
 - Indique siempre su número de radicado y el mensaje exacto en pantalla.

@@ -24,7 +24,7 @@ const datosPorMunicipio = (municipio) => {
     return {
       direccion: 'Carrera. 33a #15-49 Conjunto Residencial El Oasis – Casa 23',
       ciudad: 'Villavicencio - Meta',
-      telefono: '310 355 6449'
+      telefono: '301 5840537'
     };
   }
   return {
