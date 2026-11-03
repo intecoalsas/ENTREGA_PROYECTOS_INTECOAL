@@ -69,6 +69,21 @@ function tarjetaDoc(code) {
   return marcado.closest('div[class*="rounded-xl"]');
 }
 
+function obligatoriosPorDefecto() {
+  return DOCUMENT_CATALOG.filter(d => d.required && !d.hasSubFiles && !d.requiredIfCategoriaBc);
+}
+
+async function subirObligatorios(user, omitir = []) {
+  for (const doc of obligatoriosPorDefecto()) {
+    if (omitir.includes(doc.code)) continue;
+    const card = tarjetaDoc(doc.code);
+    await user.upload(
+      within(card).getByLabelText(/Adjuntar|Cambiar/),
+      new File(['pdf'], `${doc.code}.pdf`, { type: 'application/pdf' })
+    );
+  }
+}
+
 describe('Wizard Radicación — estructura (caja blanca)', () => {
   it('renderiza los 25 requisitos del catálogo y los 3 pasos', () => {
     expect(DOCUMENT_CATALOG).toHaveLength(25);
@@ -79,26 +94,40 @@ describe('Wizard Radicación — estructura (caja blanca)', () => {
     expect(screen.getByText(/#\d+ CEAP$/)).toBeInTheDocument();
   });
 
-  it('la navegación entre pasos es libre; el freno real está al enviar (confirm)', async () => {
+  it('el Paso 1 bloquea el aviso si faltan documentos obligatorios: no avanza al Paso 2', async () => {
     const user = userEvent.setup();
     render(<RadicacionForm onSuccess={noop} onCancel={noop} currentUser={contratista} />);
+    expect(screen.getByText('PASO 1 DE 3')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
+    expect(screen.queryByText('PASO 2 DE 3')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/No puede continuar al Paso 2/i);
+    // el salto directo desde los puntos del stepper también queda bloqueado
+    await user.click(screen.getByRole('button', { name: 'Paso 3' }));
+    expect(screen.queryByText('PASO 3 DE 3')).toBeNull();
+  });
+
+  it('con todos los obligatorios cargados el Paso 1 sí avanza', async () => {
+    const user = userEvent.setup();
+    render(<RadicacionForm onSuccess={noop} onCancel={noop} currentUser={contratista} />);
+    await subirObligatorios(user);
     await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
     expect(screen.getByText('PASO 2 DE 3')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
     expect(screen.getByText('PASO 3 DE 3')).toBeInTheDocument();
-  });
+  }, 30000);
 
   it('creación sin firma: alerta y NO llama al backend', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();
     render(<RadicacionForm onSuccess={onSuccess} onCancel={noop} currentUser={contratista} />);
+    await subirObligatorios(user);
     await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
     await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
     await user.click(screen.getByRole('button', { name: /RADICAR DOCUMENTACIÓN/i }));
     expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('firma digital'));
     expect(fetch).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
-  });
+  }, 30000);
 
   it('firma vía modal + payload multipart exacto (archivo_A1, subFile_25_25a, metadatos con firma)', async () => {
     const user = userEvent.setup();
@@ -107,6 +136,7 @@ describe('Wizard Radicación — estructura (caja blanca)', () => {
     const onSuccess = vi.fn();
     render(<RadicacionForm onSuccess={onSuccess} onCancel={noop} currentUser={contratista} />);
 
+    await subirObligatorios(user, ['A1']);
     const cardA1 = tarjetaDoc('A1');
     await user.upload(within(cardA1).getByLabelText(/Adjuntar|Cambiar/), new File(['pdf'], 'a1.pdf', { type: 'application/pdf' }));
     const cardCEAP = tarjetaDoc('CEAP');
@@ -135,7 +165,7 @@ describe('Wizard Radicación — estructura (caja blanca)', () => {
     expect(meta.creadorEmail).toBe('c@t.com');
     expect(body.get('docsAdicionales')).toBe('[]');
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
-  }, 20000);
+  }, 30000);
 });
 
 describe('Wizard — modo edición (subsanar)', () => {

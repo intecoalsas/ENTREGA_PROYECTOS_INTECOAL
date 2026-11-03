@@ -113,6 +113,7 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensajeEnvio, setMensajeEnvio] = useState(null);
+  const [avisoPaso, setAvisoPaso] = useState(false);
 
   const [categoria, setCategoria] = useState(
     filingToEdit?.metadata?.categoria || ''
@@ -154,6 +155,12 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
 
   const goToStep = (newStep) => {
     if (newStep < 1 || newStep > 3) return;
+    // Paso 1 → 2: no avanza si falta algún documento obligatorio del Expediente Técnico
+    if (!filingToEdit && currentStep === 1 && newStep > 1 && missingMandatory.length > 0) {
+      setAvisoPaso(true);
+      return;
+    }
+    setAvisoPaso(false);
     setDirection(newStep > currentStep ? 1 : -1);
     setCurrentStep(newStep);
   };
@@ -1480,6 +1487,20 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
               </motion.div>
             </AnimatePresence>
           </div>
+
+          {avisoPaso && missingMandatory.length > 0 && (
+            <div
+              role="alert"
+              className="mt-6 px-4 py-3 rounded-xl bg-red-50 border border-red-300 text-xs font-bold text-red-700 flex items-center space-x-2 shadow-sm"
+            >
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>
+                No puede continuar al Paso 2: faltan {missingMandatory.length} documento
+                {missingMandatory.length === 1 ? '' : 's'} obligatorio
+                {missingMandatory.length === 1 ? '' : 's'} del Expediente Técnico. Complete su carga para avanzar.
+              </span>
+            </div>
+          )}
 
           <div className="mt-8 pt-6 border-t border-[#BFBFBF]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
