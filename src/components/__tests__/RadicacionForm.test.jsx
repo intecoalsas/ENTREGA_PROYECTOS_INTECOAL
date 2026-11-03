@@ -82,6 +82,28 @@ async function subirObligatorios(user, omitir = []) {
       new File(['pdf'], `${doc.code}.pdf`, { type: 'application/pdf' })
     );
   }
+  // D19 (Dictamen RETIE): es "si aplica" → se resuelve subiendo el documento
+  if (!omitir.includes('D19')) {
+    const card = tarjetaDoc('D19');
+    await user.upload(
+      within(card).getByLabelText(/Adjuntar|Cambiar/),
+      new File(['pdf'], 'D19.pdf', { type: 'application/pdf' })
+    );
+  }
+  // D20 (Dictamen RETILAP): sin categoría no aparece el botón de subir → se resuelve
+  // marcando N/A (equivale a "no aplica" en categoría A)
+  if (!omitir.includes('D20')) {
+    const card = tarjetaDoc('D20');
+    await user.click(within(card).getByRole('checkbox', { name: /N\/A/ }));
+  }
+  // CEAP: los 4 sub-archivos son obligatorios
+  if (!omitir.includes('CEAP')) {
+    const card = tarjetaDoc('CEAP');
+    const slots = within(card).getAllByLabelText(/Adjuntar|Cambiar/);
+    for (let i = 0; i < slots.length; i++) {
+      await user.upload(slots[i], new File(['pdf'], `CEAP-${i}.pdf`, { type: 'application/pdf' }));
+    }
+  }
 }
 
 describe('Wizard Radicación — estructura (caja blanca)', () => {
@@ -100,7 +122,9 @@ describe('Wizard Radicación — estructura (caja blanca)', () => {
     expect(screen.getByText('PASO 1 DE 3')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Siguiente Paso/i }));
     expect(screen.queryByText('PASO 2 DE 3')).toBeNull();
-    expect(screen.getByRole('alert')).toHaveTextContent(/No puede continuar al Paso 2/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No puede continuar al Paso 2: faltan documentos obligatorios del Expediente Técnico. Complete su carga para avanzar.'
+    );
     // el salto directo desde los puntos del stepper también queda bloqueado
     await user.click(screen.getByRole('button', { name: 'Paso 3' }));
     expect(screen.queryByText('PASO 3 DE 3')).toBeNull();

@@ -286,10 +286,22 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
   const percentage = Math.round((totalCompleted / totalDocs) * 100);
 
   const missingMandatory = allDocs.filter(d => {
-    if (!d.required) return false;
-    if (d.requiredIfCategoriaBc && categoria !== 'B' && categoria !== 'C') return false;
-    if (d.hasSubFiles) return false;
-    return !selectedFiles[d.id] && !naDocs.includes(d.id) && !archivosPrevios[d.id];
+    // Sub-archivos (CEAP): los 4 deben estar cargados para darlo por completo
+    if (d.hasSubFiles) {
+      const subs = selectedSubFiles[d.id] || {};
+      const subsPrevios = (archivosPrevios[d.id]?.subFiles || [])
+        .filter(s => s.status === 'CUMPLE' || s.status === 'N/A')
+        .map(s => s.subId);
+      return (d.subFiles || []).some(sf => !subs[sf.subId] && !subsPrevios.includes(sf.subId));
+    }
+    const pendiente = !selectedFiles[d.id] && !naDocs.includes(d.id) && !archivosPrevios[d.id];
+    if (!pendiente) return false;
+    // D20: en categorías B/C es obligatorio; en A (o sin categoría) es "si aplica":
+    // debe subirse o marcarse N/A para avanzar
+    if (d.requiredIfCategoriaBc) return true;
+    // D19: no obligatorio por defecto pero es "si aplica": debe subirse o marcarse N/A
+    if (!d.required) return !d.esManual;
+    return true;
   });
 
   const pendientesSubsanar = filingToEdit
@@ -1495,9 +1507,7 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
             >
               <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
               <span>
-                No puede continuar al Paso 2: faltan {missingMandatory.length} documento
-                {missingMandatory.length === 1 ? '' : 's'} obligatorio
-                {missingMandatory.length === 1 ? '' : 's'} del Expediente Técnico. Complete su carga para avanzar.
+                No puede continuar al Paso 2: faltan documentos obligatorios del Expediente Técnico. Complete su carga para avanzar.
               </span>
             </div>
           )}
