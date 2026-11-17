@@ -16,7 +16,7 @@ export const DOCUMENT_CATALOG = [
     category: 'diseno',
     categoryName: 'Documentos de Diseño',
     required: true,
-    folderGroup: 'B_Certificaciones',
+    folderGroup: 'A_Tecnicos',
     description: 'Copia legible de la cédula del ingeniero diseñador responsable.'
   },
   {
@@ -26,7 +26,7 @@ export const DOCUMENT_CATALOG = [
     category: 'diseno',
     categoryName: 'Documentos de Diseño',
     required: true,
-    folderGroup: 'B_Certificaciones',
+    folderGroup: 'A_Tecnicos',
     description: 'Matrícula o tarjeta profesional vigente expedida por la autoridad competente (COPNIA).'
   },
   {
@@ -36,7 +36,7 @@ export const DOCUMENT_CATALOG = [
     category: 'diseno',
     categoryName: 'Documentos de Diseño',
     required: true,
-    folderGroup: 'B_Certificaciones',
+    folderGroup: 'A_Tecnicos',
     description: 'Acreditación académica en diplomado o capacitación sobre norma RETILAP.'
   },
   {
@@ -66,7 +66,7 @@ export const DOCUMENT_CATALOG = [
     category: 'diseno',
     categoryName: 'Documentos de Diseño',
     required: true,
-    folderGroup: 'B_Certificaciones',
+    folderGroup: 'A_Tecnicos',
     description: 'Conforme al formato 4.3.7.A del RETILAP. Formato oficial de declaración firmada por el diseñador eléctrico.'
   },
 
@@ -178,7 +178,7 @@ export const DOCUMENT_CATALOG = [
     category: 'constructor',
     categoryName: 'Documentos del Constructor',
     required: true,
-    folderGroup: 'B_Certificaciones',
+    folderGroup: 'C_Contractuales',
     description: 'Conforme al formato 4.3.7.B del RETILAP y formato 4.3.6.2 del RETIE. Formato de declaración juramentada de la correcta ejecución de la obra.'
   },
 

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { DOCUMENT_CATALOG } from '../data/documentsCatalog';
 
 export async function downloadFilingZip(filing) {
   const zip = new JSZip();
@@ -41,7 +42,8 @@ PASOS PARA SUBIR ESTA CARPETA A TU SHAREPOINT ONLINE:
     if (archivo.status === 'CUMPLE' || archivo.status === 'N/A' || filing.estado === 'Aprobado') {
       const esCEAP = archivo.docId === 25 || (archivo.docCode || '').toUpperCase() === 'CEAP';
       let targetSubFolder = projectFolder;
-      const path = archivo.folderPath || '';
+      const grupoCatalogo = DOCUMENT_CATALOG.find(d => d.id === archivo.docId)?.folderGroup;
+      const path = grupoCatalogo ? `/${grupoCatalogo}/` : (archivo.folderPath || '');
 
       if (esCEAP) targetSubFolder = folderCEAP;
       else if (path.includes('A_Tecnicos')) targetSubFolder = folderA;

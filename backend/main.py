@@ -1205,6 +1205,19 @@ async def sincronizar_manual(identificador: str, usuario: dict = Depends(requeri
         raise HTTPException(status_code=500, detail=f"No se pudo subir a SharePoint: {e}")
 
 
+@app.post("/api/m365/reubicar-archivos")
+async def reubicar_archivos_sharepoint(aplicar: bool = False, usuario: dict = Depends(requerir_interventor)):
+    if not graph_service:
+        raise HTTPException(status_code=503, detail="Integración Microsoft 365 no configurada en el servidor.")
+    numeros = [r.get("numeroRadicado") for r in radicaciones_db if r.get("numeroRadicado")]
+    try:
+        resultado = await graph_service.reubicar_archivos(numeros, aplicar=aplicar)
+        return {"ok": True, **resultado}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"No se pudo reubicar: {e}")
+
+
 @app.patch("/api/radicacion/{identificador}/metadata")
 async def actualizar_metadata(identificador: str, body: ActualizacionMetadata, usuario: dict = Depends(requerir_usuario)):
     radicacion = None

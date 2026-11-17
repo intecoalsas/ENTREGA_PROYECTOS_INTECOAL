@@ -3,6 +3,13 @@ import html
 from pathlib import Path
 import httpx
 
+try:
+    from backend.modelos import CATALOGO_21_DOCUMENTOS
+except ImportError:
+    from modelos import CATALOGO_21_DOCUMENTOS
+
+CARPETA_POR_DOCUMENTO = {d["id"]: d["folderGroup"] for d in CATALOGO_21_DOCUMENTOS}
+
 
 def esc(valor):
     return html.escape(str(valor or ""), quote=True)
@@ -118,9 +125,59 @@ class GraphService:
         except Exception:
             orden = 0
         base = self._sanitizar_nombre(original)
-        if not base.upper().startswith(str(code).upper()):
+        if not self._empieza_con_codigo(base, str(code)):
             base = f"{code}_{base}"
         return f"{orden:02d}_{base}"
+
+    @staticmethod
+    def _empieza_con_codigo(nombre, code):
+        n = nombre.upper()
+        c = code.upper()
+        return n.startswith(c) and n[len(c):len(c) + 1] in ("_", ".")
+
+    def _prefijo_documento(self, archivo):
+        try:
+            orden = int(archivo.get("docId", 0))
+        except Exception:
+            orden = 0
+        code = archivo.get("docCode") or str(archivo.get("docId", "X"))
+        return f"{orden:02d}_{code}"
+
+    def _prefijo_subarchivo(self, archivo, sub):
+        doc = self._sanitizar_nombre(archivo.get("docCode", "DOC"))
+        return f"{doc}_{self._sanitizar_nombre(sub.get('subCode') or 'ANEXO')}"
+
+    @staticmethod
+    def _coincide_slot(nombre, prefijo):
+        n = nombre.lower()
+        p = prefijo.lower()
+        return n.startswith(p) and n[len(p):len(p) + 1] in ("_", ".")
+
+    async def _limpiar_versiones_anteriores(self, cliente, headers_auth, base, rel, prefijo):
+        carpeta, nuevo = rel.rsplit("/", 1)
+        borrados = 0
+        try:
+            resp = await cliente.get(
+                f"{base}/root:/{carpeta}:/children",
+                headers=headers_auth,
+                params={"$select": "id,name", "$top": "999"},
+            )
+            if resp.status_code != 200:
+                print(f"[GRAPH] No se pudo listar {carpeta} para limpiar versiones: {resp.status_code}")
+                return 0
+            for item in resp.json().get("value", []):
+                nombre_item = item.get("name", "")
+                if nombre_item.lower() == nuevo.lower() or not self._coincide_slot(nombre_item, prefijo):
+                    continue
+                r = await cliente.delete(f"{base}/items/{item['id']}", headers=headers_auth)
+                if r.status_code in (200, 204):
+                    borrados += 1
+                    print(f"[GRAPH] Versión anterior eliminada: {carpeta}/{nombre_item}")
+                else:
+                    print(f"[GRAPH] Error eliminando {carpeta}/{nombre_item}: {r.status_code} {r.text[:200]}")
+        except Exception as e:
+            print(f"[GRAPH] Error limpiando versiones de {carpeta}: {e}")
+        return borrados
 
     def _es_ceap(self, archivo):
         try:
@@ -142,6 +199,8 @@ class GraphService:
             return "D_Inventario"
         if archivo.get("esManual"):
             return "F_Documentos_Adicionales"
+        if doc_id in CARPETA_POR_DOCUMENTO:
+            return CARPETA_POR_DOCUMENTO[doc_id]
         folder_path = archivo.get("folderPath") or ""
         if "Documentos_Adicionales" in folder_path:
             return "F_Documentos_Adicionales"
@@ -328,6 +387,9 @@ class GraphService:
                     try:
                         if await self._subir_contenido(cliente, headers_auth, base, rel_sf, sf_cont):
                             subidos += 1
+                            await self._limpiar_versiones_anteriores(
+                                cliente, headers_auth, base, rel_sf, self._prefijo_subarchivo(a, sf)
+                            )
                     except Exception as e:
                         print(f"[GRAPH] Excepcion subiendo {rel_sf}: {e}")
 
@@ -365,6 +427,10 @@ class GraphService:
                     omitidos += 0 if ok else 1
                     if not ok:
                         perdidos.append(a.get("docCode", "DOC"))
+                    else:
+                        await self._limpiar_versiones_anteriores(
+                            cliente, headers_auth, base, rel, self._prefijo_documento(a)
+                        )
                 except Exception as e:
                     print(f"[GRAPH] Excepcion subiendo {rel}: {e}")
                     perdidos.append(a.get("docCode", "DOC"))
@@ -1031,6 +1097,52 @@ class GraphService:
 
         completo = "error" not in resumen["archivos"] and not resumen["archivos"].get("perdidos")
         return {"ok": True, "completo": completo, "resumen": resumen}
+
+    @staticmethod
+    def _id_documento_desde_nombre(nombre):
+        partes = (nombre or "").split("_", 1)
+        if len(partes) == 2 and len(partes[0]) == 2 and partes[0].isdigit():
+            return int(partes[0])
+        return None
+
+    async def reubicar_archivos(self, numeros, aplicar=False):
+        token = await self._obtener_token()
+        headers_auth = {"Authorization": f"Bearer {token}"}
+        headers_json = {**headers_auth, "Content-Type": "application/json"}
+        base = await self._drive_url()
+        drive_id = await self._obtener_drive_id()
+
+        plan = []
+        async with httpx.AsyncClient(timeout=60.0) as cliente:
+            for numero in numeros:
+                if aplicar:
+                    await self._crear_carpeta_proyecto(numero)
+                for sub in self.SUBCARPETAS:
+                    resp = await cliente.get(
+                        f"{base}/root:/{self.RAIZ}/{numero}/{sub}:/children",
+                        headers=headers_auth,
+                        params={"$select": "id,name,file", "$top": "999"},
+                    )
+                    if resp.status_code != 200:
+                        continue
+                    for item in resp.json().get("value", []):
+                        if "file" not in item:
+                            continue
+                        doc_id = self._id_documento_desde_nombre(item.get("name", ""))
+                        destino = CARPETA_POR_DOCUMENTO.get(doc_id)
+                        if not destino or destino == sub:
+                            continue
+                        movimiento = {"numero": numero, "archivo": item["name"], "de": sub, "a": destino}
+                        if aplicar:
+                            r = await cliente.patch(
+                                f"{base}/items/{item['id']}",
+                                headers=headers_json,
+                                json={"parentReference": {"path": f"/drives/{drive_id}/root:/{self.RAIZ}/{numero}/{destino}"}},
+                            )
+                            movimiento["status"] = r.status_code
+                            print(f"[GRAPH] Reubicado {numero}/{sub}/{item['name']} -> {destino}: {r.status_code}")
+                        plan.append(movimiento)
+        return {"aplicar": aplicar, "total": len(plan), "movimientos": plan}
 
     async def eliminar_radicacion_de_sharepoint(self, numero):
         token = await self._obtener_token()

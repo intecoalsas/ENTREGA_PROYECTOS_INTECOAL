@@ -134,10 +134,14 @@ def test_subir_expediente_sube_subarchivos_aun_sin_archivo_propio(tmp_path, monk
         subidas.append(rel)
         return True
 
+    async def _sin_limpieza(cliente, headers, base, rel, prefijo):
+        return 0
+
     monkeypatch.setattr(g, "_obtener_token", _tok)
     monkeypatch.setattr(g, "_drive_url", _drive)
     monkeypatch.setattr(g, "_crear_carpeta_proyecto", _crear_carpetas)
     monkeypatch.setattr(g, "_subir_contenido", _contenido)
+    monkeypatch.setattr(g, "_limpiar_versiones_anteriores", _sin_limpieza)
 
     a1 = tmp_path / "A1.pdf"
     a1.write_bytes(b"%PDF-1.4 A1")
@@ -217,3 +221,100 @@ def test_archivo_registrado_sin_bytes_en_disco_se_reporta_como_perdido(tmp_path,
     res = asyncio.run(g.subir_expediente_a_sharepoint(rad))
     assert res["subidos"] == 0
     assert res["perdidos"] == ["A1"]
+
+
+def test_coincidencia_de_slot_no_mezcla_documentos():
+    from backend.grafos import GraphService
+
+    coincide = GraphService._coincide_slot
+    assert coincide("01_A1_viejo.pdf", "01_A1")
+    assert coincide("01_A1.docx", "01_A1")
+    assert not coincide("01_A10_otro.pdf", "01_A1")
+    assert not coincide("01_A1cert.pdf", "01_A1")
+
+
+class _RespuestaFalsa:
+    def __init__(self, status, datos=None):
+        self.status_code = status
+        self._datos = datos or {}
+        self.text = ""
+
+    def json(self):
+        return self._datos
+
+
+class _ClienteFalso:
+    def __init__(self, nombres):
+        self.nombres = nombres
+        self.borrados = []
+
+    async def get(self, url, headers=None, params=None):
+        items = [{"id": f"id-{n}", "name": n} for n in self.nombres]
+        return _RespuestaFalsa(200, {"value": items})
+
+    async def delete(self, url, headers=None):
+        self.borrados.append(url.rsplit("/", 1)[1])
+        return _RespuestaFalsa(204)
+
+
+def test_limpieza_borra_solo_versiones_del_mismo_documento(tmp_path):
+    import asyncio
+
+    from backend.grafos import GraphService
+
+    g = GraphService()
+    cliente = _ClienteFalso(["01_A1_viejo.pdf", "01_A1.docx", "01_A1_nuevo.pdf", "01_A10_otro.pdf"])
+    n = asyncio.run(g._limpiar_versiones_anteriores(
+        cliente, {}, "base", "Documentos_Radicacion/RAD/A_Tecnicos/01_A1_nuevo.pdf", "01_A1"))
+    assert n == 2
+    assert sorted(cliente.borrados) == ["id-01_A1.docx", "id-01_A1_viejo.pdf"]
+
+
+def test_reemplazo_limpia_despues_de_subir_y_no_borra_si_falla(tmp_path, monkeypatch):
+    import asyncio
+
+    from backend.grafos import GraphService
+
+    g = GraphService()
+    limpiezas = []
+    resultado_subida = {"ok": True}
+
+    async def _tok():
+        return "token-falso"
+
+    async def _drive():
+        return "base-falsa"
+
+    async def _carpetas(numero):
+        return None
+
+    async def _contenido(cliente, headers, base, rel, contenido):
+        return resultado_subida["ok"]
+
+    async def _limpiar(cliente, headers, base, rel, prefijo):
+        limpiezas.append((rel, prefijo))
+        return 0
+
+    monkeypatch.setattr(g, "_obtener_token", _tok)
+    monkeypatch.setattr(g, "_drive_url", _drive)
+    monkeypatch.setattr(g, "_crear_carpeta_proyecto", _carpetas)
+    monkeypatch.setattr(g, "_subir_contenido", _contenido)
+    monkeypatch.setattr(g, "_limpiar_versiones_anteriores", _limpiar)
+
+    archivo = tmp_path / "nuevo.pdf"
+    archivo.write_bytes(b"%PDF-1.4 nueva version")
+    rad = {"numeroRadicado": "RAD-T-REEMP", "archivos": [
+        {"docId": 1, "docCode": "A1", "fileName": "certificado_final.pdf", "status": "CUMPLE",
+         "localPath": str(archivo), "folderPath": "/A_Tecnicos/"},
+    ]}
+
+    asyncio.run(g.subir_expediente_a_sharepoint(rad, solo_doc_id=1))
+    assert len(limpiezas) == 1
+    rel, prefijo = limpiezas[0]
+    assert rel.endswith("/01_A1_certificado_final.pdf")
+    assert prefijo == "01_A1"
+
+    limpiezas.clear()
+    resultado_subida["ok"] = False
+    asyncio.run(g.subir_expediente_a_sharepoint(rad, solo_doc_id=1))
+    assert limpiezas == [], "no debe borrar la version anterior si la nueva no se subio"

@@ -107,19 +107,19 @@ CATALOGO_21_DOCUMENTOS = [
     {
         "id": 2, "code": "A2", "name": "Cédula de ciudadanía del diseñador",
         "category": "diseno", "categoryName": "Documentos de Diseño",
-        "required": True, "folderGroup": "B_Certificaciones",
+        "required": True, "folderGroup": "A_Tecnicos",
         "description": "Copia legible de la cédula del ingeniero diseñador responsable."
     },
     {
         "id": 3, "code": "A3", "name": "Tarjeta profesional del diseñador",
         "category": "diseno", "categoryName": "Documentos de Diseño",
-        "required": True, "folderGroup": "B_Certificaciones",
+        "required": True, "folderGroup": "A_Tecnicos",
         "description": "Matrícula o tarjeta profesional vigente expedida por la autoridad competente (COPNIA)."
     },
     {
         "id": 4, "code": "A4", "name": "Diploma RETILAP del diseñador",
         "category": "diseno", "categoryName": "Documentos de Diseño",
-        "required": True, "folderGroup": "B_Certificaciones",
+        "required": True, "folderGroup": "A_Tecnicos",
         "description": "Acreditación académica en diplomado o capacitación sobre norma RETILAP."
     },
     {
@@ -137,7 +137,7 @@ CATALOGO_21_DOCUMENTOS = [
     {
         "id": 7, "code": "A7", "name": "Declaración de cumplimiento RETILAP del diseñador",
         "category": "diseno", "categoryName": "Documentos de Diseño",
-        "required": True, "folderGroup": "B_Certificaciones",
+        "required": True, "folderGroup": "A_Tecnicos",
         "description": "Conforme al formato 4.3.7.A del RETILAP. Formato oficial de declaración firmada por el diseñador eléctrico."
     },
     {
@@ -203,7 +203,7 @@ CATALOGO_21_DOCUMENTOS = [
     {
         "id": 18, "code": "C18", "name": "Declaración de cumplimiento RETIE y RETILAP del constructor",
         "category": "constructor", "categoryName": "Documentos del Constructor",
-        "required": True, "folderGroup": "B_Certificaciones",
+        "required": True, "folderGroup": "C_Contractuales",
         "description": "Conforme al formato 4.3.7.B del RETILAP y formato 4.3.6.2 del RETIE. Formato de declaración juramentada de la correcta ejecución de la obra."
     },
     {
