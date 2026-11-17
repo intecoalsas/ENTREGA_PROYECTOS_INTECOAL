@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { RadicacionForm } from './components/RadicacionForm';
@@ -160,7 +160,7 @@ export default function App() {
     fetchFilings();
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user.isAuthenticated) {
+      if (document.visibilityState === 'visible' && userRef.current.isAuthenticated) {
         fetchFilings();
       }
     };
@@ -310,8 +310,13 @@ export default function App() {
     }
   }, [user.isAuthenticated, user.email, jwt]);
 
+  const userRef = useRef(user);
+  userRef.current = user;
+
   const fetchFilings = async (retryCount = 0) => {
-    if (!user.isAuthenticated) return;
+    if (!userRef.current.isAuthenticated) return;
+    const MAX_REINTENTOS = 20;
+    const esperaMs = Math.min(3000 + retryCount * 1000, 6000);
     try {
       const res = await apiFetch('/api/radicacion/lista');
       if (res.ok) {
@@ -320,13 +325,13 @@ export default function App() {
           setFilings(json.data);
         }
         setUltimoGlobal(json.ultimoGlobal || null);
-      } else if (res.status !== 401 && retryCount < 3) {
-        await new Promise(r => setTimeout(r, 3000));
+      } else if (res.status !== 401 && retryCount < MAX_REINTENTOS) {
+        await new Promise(r => setTimeout(r, esperaMs));
         fetchFilings(retryCount + 1);
       }
     } catch (err) {
-      if (retryCount < 3) {
-        await new Promise(r => setTimeout(r, 3000));
+      if (retryCount < MAX_REINTENTOS) {
+        await new Promise(r => setTimeout(r, esperaMs));
         fetchFilings(retryCount + 1);
       } else {
         console.warn('Backend no disponible después de reintentos', err);

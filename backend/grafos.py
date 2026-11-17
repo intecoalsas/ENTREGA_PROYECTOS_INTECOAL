@@ -278,63 +278,43 @@ class GraphService:
             print(f"[GRAPH] Respaldo de BD no disponible ({resp.status_code}): {rel}")
             return None
 
-    async def _subir_archivos(self, radicacion, codigo):
+    async def _subir_archivos(self, radicacion, codigo, solo_doc_id=None):
         token = await self._obtener_token()
         headers_auth = {"Authorization": f"Bearer {token}"}
         base = await self._drive_url()
 
         subidos = 0
         omitidos = 0
+        perdidos = []
         async with httpx.AsyncClient(timeout=120.0) as cliente:
             for a in radicacion.get("archivos", []):
-                local_path = (a.get("localPath") or "").strip()
-                file_name = (a.get("fileName") or "").strip()
+                if solo_doc_id is not None and a.get("docId") != solo_doc_id:
+                    continue
                 if a.get("status") == "N/A":
                     continue
-                if not local_path and not file_name:
-                    omitidos += 1
-                    continue
-                if not local_path:
-                    print(f"[GRAPH] Sin localPath (solo metadato), se omite: {a.get('docCode')}")
-                    omitidos += 1
-                    continue
-                file_path = Path(local_path)
-                if not file_path.exists():
-                    print(f"[GRAPH] Archivo local no encontrado: {local_path}")
-                    omitidos += 1
-                    continue
-                try:
-                    contenido = file_path.read_bytes()
-                except Exception as e:
-                    print(f"[GRAPH] No se pudo leer {local_path}: {e}")
-                    omitidos += 1
-                    continue
+                local_path = (a.get("localPath") or "").strip()
+                file_name = (a.get("fileName") or "").strip()
                 subcarpeta = self._carpeta_destino(a)
-                destino = self._nombre_ordenado(a)
-                if self._es_ceap(a):
-                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{self.CEAP_SUBCARPETA}/{destino}"
-                else:
-                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{destino}"
-                try:
-                    ok = await self._subir_contenido(cliente, headers_auth, base, rel, contenido)
-                    subidos += 1 if ok else 0
-                    omitidos += 0 if ok else 1
-                except Exception as e:
-                    print(f"[GRAPH] Excepcion subiendo {rel}: {e}")
-                    omitidos += 1
+                subfiles = a.get("subFiles", []) or []
 
-                for sf in a.get("subFiles", []) or []:
+                # 1) Sub-archivos (CEAP y anexos): se suben siempre, aunque el
+                #    documento no tenga archivo propio (p. ej. el CEAP).
+                for sf in subfiles:
                     sf_local = (sf.get("localPath") or "").strip()
                     if not sf_local:
+                        if sf.get("fileName"):
+                            perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
                     sf_path = Path(sf_local)
                     if not sf_path.exists():
                         print(f"[GRAPH] Sub-archivo local no encontrado: {sf_local}")
+                        perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
                     try:
                         sf_cont = sf_path.read_bytes()
                     except Exception as e:
                         print(f"[GRAPH] No se pudo leer sub-archivo {sf_local}: {e}")
+                        perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
                     sf_nombre = self._sanitizar_nombre(
                         sf.get("subName") or sf.get("fileName") or "anexo"
@@ -351,9 +331,67 @@ class GraphService:
                     except Exception as e:
                         print(f"[GRAPH] Excepcion subiendo {rel_sf}: {e}")
 
+                # 2) Archivo principal del documento
+                if not local_path and not file_name:
+                    if not subfiles:
+                        omitidos += 1
+                    continue
+                if not local_path:
+                    print(f"[GRAPH] Sin localPath (solo metadato), se omite: {a.get('docCode')}")
+                    perdidos.append(a.get("docCode", "DOC"))
+                    omitidos += 1
+                    continue
+                file_path = Path(local_path)
+                if not file_path.exists():
+                    print(f"[GRAPH] Archivo local no encontrado: {local_path}")
+                    perdidos.append(a.get("docCode", "DOC"))
+                    omitidos += 1
+                    continue
+                try:
+                    contenido = file_path.read_bytes()
+                except Exception as e:
+                    print(f"[GRAPH] No se pudo leer {local_path}: {e}")
+                    perdidos.append(a.get("docCode", "DOC"))
+                    omitidos += 1
+                    continue
+                destino = self._nombre_ordenado(a)
+                if self._es_ceap(a):
+                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{self.CEAP_SUBCARPETA}/{destino}"
+                else:
+                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{destino}"
+                try:
+                    ok = await self._subir_contenido(cliente, headers_auth, base, rel, contenido)
+                    subidos += 1 if ok else 0
+                    omitidos += 0 if ok else 1
+                    if not ok:
+                        perdidos.append(a.get("docCode", "DOC"))
+                except Exception as e:
+                    print(f"[GRAPH] Excepcion subiendo {rel}: {e}")
+                    perdidos.append(a.get("docCode", "DOC"))
+                    omitidos += 1
 
-        print(f"[GRAPH] Subida {codigo}: {subidos} archivos OK, {omitidos} omitidos")
-        return {"subidos": subidos, "omitidos": omitidos}
+        print(f"[GRAPH] Subida {codigo}: {subidos} archivos OK, {omitidos} omitidos, perdidos={perdidos}")
+        return {"subidos": subidos, "omitidos": omitidos, "perdidos": perdidos}
+
+    async def subir_expediente_a_sharepoint(self, radicacion, solo_doc_id=None):
+        """Sube carpetas y archivos del radicado a SharePoint (sin crear fila en la lista).
+
+        Se ejecuta al radicar y al corregir documentos, para que la copia en la nube
+        exista aunque el disco volátil del servidor se borre en un reinicio (Render).
+        Al aprobar se vuelve a intentar como respaldo.
+        """
+        numero = (radicacion or {}).get("numeroRadicado", "")
+        if not numero:
+            return {"subidos": 0, "omitidos": 0}
+        try:
+            await self._crear_carpeta_proyecto(numero)
+        except Exception as e:
+            print(f"[GRAPH] Error creando carpetas de {numero}: {e}")
+        try:
+            return await self._subir_archivos(radicacion, numero, solo_doc_id=solo_doc_id)
+        except Exception as e:
+            print(f"[GRAPH] Error subiendo archivos de {numero}: {e}")
+            return {"subidos": 0, "omitidos": 0, "error": str(e)}
 
     def _nombre_seguro_raiz(self, nombre):
         seguro = "".join(c for c in str(nombre or "") if c not in '/\\?%*:|"<>').strip() or "formato.pdf"
@@ -775,7 +813,7 @@ class GraphService:
             })
 
             if resp_l.status_code == 200:
-                url_items = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/lists/{self.list_id}/items?$top=1&$select=id,fields"
+                url_items = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/lists/{self.list_id}/items?$top=5000&$select=id"
                 resp_items = await cliente.get(url_items, headers=headers)
                 items_count = len(resp_items.json().get("value", []))
                 resultados["pasos"].append({
@@ -991,7 +1029,8 @@ class GraphService:
             resumen["archivos"] = {"error": str(e)}
             print(f"[GRAPH] Error subiendo archivos de {numero}: {e}")
 
-        return {"ok": True, "resumen": resumen}
+        completo = "error" not in resumen["archivos"] and not resumen["archivos"].get("perdidos")
+        return {"ok": True, "completo": completo, "resumen": resumen}
 
     async def eliminar_radicacion_de_sharepoint(self, numero):
         token = await self._obtener_token()
@@ -1000,12 +1039,17 @@ class GraphService:
         url = f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/lists/{self.list_id}/items"
         params = {
             "$filter": f"fields/NumeroRadicado eq '{self._filtro_seguro(numero)}'",
-            "$expand": "fields",
             "$select": "id",
         }
 
         async with httpx.AsyncClient(timeout=30.0) as cliente:
-            resp = await cliente.get(url, headers=headers, params=params)
+            # NumeroRadicado no está indexado en la lista: Graph exige este header
+            # para permitir $filter/$orderby sobre él (si no, responde 400).
+            headers_get = {
+                **headers,
+                "Prefer": "HonorNonIndexedQueriesWarningMayFailRandomly",
+            }
+            resp = await cliente.get(url, headers=headers_get, params=params)
             if resp.status_code != 200:
                 print(f"[GRAPH] Error buscando items a eliminar para {numero}: {resp.status_code}")
                 return

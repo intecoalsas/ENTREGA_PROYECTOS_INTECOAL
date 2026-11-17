@@ -857,6 +857,15 @@ async def crear_radicacion(request: Request, usuario: dict = Depends(requerir_us
     print(f"[MAIN] graph_service={'DISPONIBLE' if graph_service else 'NULL'}")
 
     if graph_service:
+        async def _subir_inicial(rad):
+            try:
+                res = await graph_service.subir_expediente_a_sharepoint(rad)
+                print(f"[MAIN] Archivos iniciales de {rad.get('numeroRadicado')} a SharePoint: {res}")
+            except Exception as e:
+                print(f"[MAIN] Error subiendo archivos iniciales de {rad.get('numeroRadicado')}: {e}")
+
+        lanzar_background(_subir_inicial(radicacion), f"sp-inicial-{numero}")
+
         async def _post_creacion(rad):
             try:
                 await graph_service.enviar_correo_nuevo_radicado_revisor(rad)
@@ -979,6 +988,21 @@ async def subir_archivo(request: Request, identificador: str, usuario: dict = De
     radicacion["fechaActualizacion"] = datetime.now(timezone.utc).isoformat()
     guardar_db()
 
+    if graph_service:
+        # Copia a SharePoint en caliente: el archivo existe en disco recién subido,
+        # antes de que un reinicio del servidor lo borre.
+        async def _subir_doc(rad, d_id):
+            try:
+                res = await graph_service.subir_expediente_a_sharepoint(rad, solo_doc_id=d_id)
+                print(f"[MAIN] Documento {d_id} de {rad.get('numeroRadicado')} a SharePoint: {res}")
+            except Exception as e:
+                print(f"[MAIN] Error subiendo documento {d_id} de {rad.get('numeroRadicado')}: {e}")
+
+        lanzar_background(
+            _subir_doc(radicacion, docId),
+            f"sp-doc-{radicacion.get('numeroRadicado', '')}-{docId}",
+        )
+
     return {"ok": True, "data": radicacion}
 
 
@@ -1100,10 +1124,13 @@ async def actualizar_estado(identificador: str, body: ActualizacionEstado, usuar
                 return
             if estado_final == "Aprobado":
                 try:
-                    await graph_service.guardar_radicacion_en_sharepoint(rad)
-                    rad["m365Synced"] = True
+                    res = await graph_service.guardar_radicacion_en_sharepoint(rad)
+                    rad["m365Synced"] = bool(res.get("completo", True))
                     guardar_db()
-                    print(f"[MAIN] SharePoint sync OK para {numero} (Aprobado)")
+                    if rad["m365Synced"]:
+                        print(f"[MAIN] SharePoint sync OK para {numero} (Aprobado)")
+                    else:
+                        print(f"[MAIN] SharePoint sync INCOMPLETO para {numero}: {res.get('resumen', {}).get('archivos')}")
                 except Exception as e:
                     rad["m365Synced"] = False
                     guardar_db()
@@ -1161,7 +1188,7 @@ async def sincronizar_manual(identificador: str, usuario: dict = Depends(requeri
         resumen = await asyncio.wait_for(
             graph_service.guardar_radicacion_en_sharepoint(radicacion), timeout=180
         )
-        radicacion["m365Synced"] = True
+        radicacion["m365Synced"] = bool(resumen.get("completo", True))
         guardar_db()
         return {"ok": True, "data": radicacion, "detalle": resumen}
     except asyncio.TimeoutError:

@@ -27,6 +27,11 @@ class _GraphEspia:
         self.guardados = []
         self.eliminados = []
         self.correos = []
+        self.subidos = []
+
+    async def subir_expediente_a_sharepoint(self, rad, solo_doc_id=None):
+        self.subidos.append((rad.get("numeroRadicado"), solo_doc_id))
+        return {"subidos": 0, "omitidos": 0}
 
     async def guardar_radicacion_en_sharepoint(self, rad):
         self.guardados.append(rad.get("numeroRadicado"))
