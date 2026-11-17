@@ -361,6 +361,11 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
           const d = await resp.json().catch(() => null);
           return `${que}: ${d?.detail || `HTTP ${resp.status}`}`;
         };
+        const sincronizarDocumento = (json, docId) => {
+          const fresco = json?.data?.archivos?.find(a => a.docId === docId);
+          const local = archivos.find(a => a.docId === docId);
+          if (fresco && local) Object.assign(local, fresco);
+        };
 
         for (const [docIdStr, file] of Object.entries(selectedFiles)) {
           const docId = parseInt(docIdStr, 10);
@@ -399,6 +404,7 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
             });
             const err = await verError(rSub, `anexo ${i + 1} de ${docIdStr}`);
             if (err) fallos.push(err);
+            else sincronizarDocumento(await rSub.json().catch(() => null), docId);
           }
         }
 
@@ -420,6 +426,7 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
             });
             const err = await verError(rSlot, `sub-archivo ${subId}`);
             if (err) fallos.push(err);
+            else sincronizarDocumento(await rSlot.json().catch(() => null), docId);
           }
         }
 

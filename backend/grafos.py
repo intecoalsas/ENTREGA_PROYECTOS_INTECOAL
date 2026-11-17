@@ -1,5 +1,6 @@
 import os
 import html
+import mimetypes
 from pathlib import Path
 import httpx
 
@@ -353,7 +354,6 @@ class GraphService:
                     continue
                 local_path = (a.get("localPath") or "").strip()
                 file_name = (a.get("fileName") or "").strip()
-                subcarpeta = self._carpeta_destino(a)
                 subfiles = a.get("subFiles", []) or []
 
                 # 1) Sub-archivos (CEAP y anexos): se suben siempre, aunque el
@@ -375,15 +375,7 @@ class GraphService:
                         print(f"[GRAPH] No se pudo leer sub-archivo {sf_local}: {e}")
                         perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
-                    sf_nombre = self._sanitizar_nombre(
-                        sf.get("subName") or sf.get("fileName") or "anexo"
-                    )
-                    sf_code = sf.get("subCode") or "ANEXO"
-                    sf_base = f"{self._sanitizar_nombre(a.get('docCode', 'DOC'))}_{self._sanitizar_nombre(sf_code)}_{sf_nombre}"
-                    if self._es_ceap(a):
-                        rel_sf = f"{self.RAIZ}/{codigo}/{subcarpeta}/{self.CEAP_SUBCARPETA}/{sf_base}"
-                    else:
-                        rel_sf = f"{self.RAIZ}/{codigo}/{subcarpeta}/{sf_base}"
+                    rel_sf = self._ruta_archivo(codigo, a, sf)
                     try:
                         if await self._subir_contenido(cliente, headers_auth, base, rel_sf, sf_cont):
                             subidos += 1
@@ -416,11 +408,7 @@ class GraphService:
                     perdidos.append(a.get("docCode", "DOC"))
                     omitidos += 1
                     continue
-                destino = self._nombre_ordenado(a)
-                if self._es_ceap(a):
-                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{self.CEAP_SUBCARPETA}/{destino}"
-                else:
-                    rel = f"{self.RAIZ}/{codigo}/{subcarpeta}/{destino}"
+                rel = self._ruta_archivo(codigo, a)
                 try:
                     ok = await self._subir_contenido(cliente, headers_auth, base, rel, contenido)
                     subidos += 1 if ok else 0
@@ -1097,6 +1085,132 @@ class GraphService:
 
         completo = "error" not in resumen["archivos"] and not resumen["archivos"].get("perdidos")
         return {"ok": True, "completo": completo, "resumen": resumen}
+
+    def _ruta_archivo(self, numero, a, sub=None):
+        carpeta = f"{self.RAIZ}/{numero}/{self._carpeta_destino(a)}"
+        if self._es_ceap(a):
+            carpeta = f"{carpeta}/{self.CEAP_SUBCARPETA}"
+        if sub is None:
+            return f"{carpeta}/{self._nombre_ordenado(a)}"
+        sf_nombre = self._sanitizar_nombre(sub.get("subName") or sub.get("fileName") or "anexo")
+        sf_code = sub.get("subCode") or "ANEXO"
+        sf_base = f"{self._sanitizar_nombre(a.get('docCode', 'DOC'))}_{self._sanitizar_nombre(sf_code)}_{sf_nombre}"
+        return f"{carpeta}/{sf_base}"
+
+    async def descargar_archivo(self, numero, a, sub=None):
+        try:
+            token = await self._obtener_token()
+            headers_auth = {"Authorization": f"Bearer {token}"}
+            base = await self._drive_url()
+            rel = self._ruta_archivo(numero, a, sub)
+            async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as cliente:
+                resp = await cliente.get(f"{base}/root:/{rel}:/content", headers=headers_auth)
+            if resp.status_code == 200 and resp.content:
+                return resp.content
+            print(f"[GRAPH] Archivo no encontrado en SharePoint ({resp.status_code}): {rel}")
+        except Exception as e:
+            print(f"[GRAPH] Error descargando archivo de {numero}: {e}")
+        return None
+
+    async def listar_nombres(self, carpeta_rel):
+        token = await self._obtener_token()
+        headers_auth = {"Authorization": f"Bearer {token}"}
+        base = await self._drive_url()
+        async with httpx.AsyncClient(timeout=60.0) as cliente:
+            resp = await cliente.get(
+                f"{base}/root:/{carpeta_rel}:/children",
+                headers=headers_auth,
+                params={"$select": "name,file", "$top": "999"},
+            )
+        if resp.status_code == 404:
+            return []
+        if resp.status_code != 200:
+            raise Exception(f"SharePoint respondió {resp.status_code} al listar {carpeta_rel}")
+        return [i.get("name", "") for i in resp.json().get("value", []) if "file" in i]
+
+    async def nombres_del_expediente(self, numero):
+        carpetas = {f"{self.RAIZ}/{numero}/{g}" for g in self.SUBCARPETAS}
+        carpetas.add(f"{self.RAIZ}/{numero}/E_Otros/{self.CEAP_SUBCARPETA}")
+        return {c: await self.listar_nombres(c) for c in carpetas}
+
+    @staticmethod
+    def planear_reconstruccion(radicacion, nombres_por_carpeta):
+        numero = radicacion.get("numeroRadicado", "")
+        por_id = {d["id"]: d for d in CATALOGO_21_DOCUMENTOS}
+        cambios = []
+        for a in radicacion.get("archivos") or []:
+            doc = por_id.get(a.get("docId"))
+            if not doc:
+                continue
+            code = doc["code"]
+            carpeta = f"{GraphService.RAIZ}/{numero}/{doc['folderGroup']}"
+            if doc.get("hasSubFiles"):
+                carpeta = f"{carpeta}/{GraphService.CEAP_SUBCARPETA}"
+            nombres = nombres_por_carpeta.get(carpeta, [])
+            sub_existentes = {str(s.get("subId")): s for s in (a.get("subFiles") or [])}
+
+            if not a.get("fileName"):
+                prefijo = f"{doc['id']:02d}_{code}"
+                match = next(
+                    (n for n in nombres
+                     if n.lower().startswith(prefijo.lower()) and n[len(prefijo):len(prefijo) + 1] in ("_", ".")),
+                    None,
+                )
+                if match:
+                    resto = match[len(prefijo):]
+                    resto = resto[1:] if resto.startswith("_") else resto
+                    cambios.append({"docId": doc["id"], "docCode": code, "tipo": "archivo",
+                                    "nombreSharePoint": match, "fileName": resto})
+
+            for sub in doc.get("subFiles", []):
+                if str(sub["subId"]) in sub_existentes and sub_existentes[str(sub["subId"])].get("fileName"):
+                    continue
+                prefijo = f"{code}_{sub['subCode']}_"
+                match = next((n for n in nombres if n.lower().startswith(prefijo.lower())), None)
+                if match:
+                    cambios.append({"docId": doc["id"], "docCode": code, "tipo": "subarchivo",
+                                    "subId": sub["subId"], "subCode": sub["subCode"], "subName": sub["subName"],
+                                    "nombreSharePoint": match, "fileName": match[len(prefijo):]})
+
+            for n in nombres:
+                prefijo = f"{code}_ANEXO-"
+                if not n.lower().startswith(prefijo.lower()):
+                    continue
+                resto = n[len(prefijo):]
+                numero_anexo, _, nombre_anexo = resto.partition("_")
+                if not numero_anexo.isdigit() or not nombre_anexo:
+                    continue
+                sub_id = f"extra_{int(numero_anexo)}"
+                if sub_id in sub_existentes and sub_existentes[sub_id].get("fileName"):
+                    continue
+                cambios.append({"docId": doc["id"], "docCode": code, "tipo": "anexo",
+                                "subId": sub_id, "subCode": f"ANEXO-{int(numero_anexo)}",
+                                "subName": nombre_anexo, "nombreSharePoint": n, "fileName": nombre_anexo})
+        return cambios
+
+    @staticmethod
+    def aplicar_reconstruccion(radicacion, cambios):
+        por_doc = {a.get("docId"): a for a in radicacion.get("archivos") or []}
+        for c in cambios:
+            a = por_doc.get(c["docId"])
+            if a is None:
+                continue
+            if c["tipo"] == "archivo":
+                a["fileName"] = c["fileName"]
+                a["fileType"] = mimetypes.guess_type(c["fileName"])[0] or "application/pdf"
+                a["status"] = "CUMPLE" if a.get("status") not in ("N/A",) else a["status"]
+                continue
+            subs = a.setdefault("subFiles", [])
+            sf = next((s for s in subs if str(s.get("subId")) == str(c["subId"])), None)
+            if sf is None:
+                sf = {"subId": c["subId"], "subCode": c["subCode"], "subName": c["subName"]}
+                subs.append(sf)
+            sf["fileName"] = c["fileName"]
+            sf["fileType"] = mimetypes.guess_type(c["fileName"])[0] or "application/pdf"
+            sf["status"] = "CUMPLE"
+            sf.setdefault("localPath", "")
+            if a.get("status") != "N/A":
+                a["status"] = "CUMPLE"
 
     @staticmethod
     def _id_documento_desde_nombre(nombre):

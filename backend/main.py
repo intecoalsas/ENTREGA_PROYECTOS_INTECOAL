@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from fastapi import FastAPI, HTTPException, Request, Query, Depends
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
+from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from jose import jwt, JWTError
@@ -1062,6 +1063,35 @@ async def subir_formato(request: Request, identificador: str, usuario: dict = De
     return {"ok": True, "data": radicacion}
 
 
+def _fusionar_archivos(existentes, entrantes):
+    previos = {a.get("docId"): a for a in (existentes or [])}
+    for a in entrantes:
+        previo = previos.get(a.get("docId")) or {}
+        a["localPath"] = previo.get("localPath", "")
+        subs_previos = {str(s.get("subId")): s for s in (previo.get("subFiles") or [])}
+        if not subs_previos and not a.get("subFiles"):
+            continue
+        resultado = []
+        vistos = set()
+        for s in (a.get("subFiles") or []):
+            sid = str(s.get("subId"))
+            vistos.add(sid)
+            base = subs_previos.get(sid)
+            if base:
+                combinado = dict(base)
+                for campo in ("status", "notes"):
+                    if campo in s:
+                        combinado[campo] = s[campo]
+                resultado.append(combinado)
+            else:
+                resultado.append(dict(s))
+        for sid, base in subs_previos.items():
+            if sid not in vistos:
+                resultado.append(base)
+        a["subFiles"] = resultado
+    return entrantes
+
+
 @app.patch("/api/radicacion/{identificador}/estado")
 async def actualizar_estado(identificador: str, body: ActualizacionEstado, usuario: dict = Depends(requerir_usuario)):
     radicacion = None
@@ -1083,10 +1113,7 @@ async def actualizar_estado(identificador: str, body: ActualizacionEstado, usuar
     radicacion["observacionesGenerales"] = body.observaciones or ""
 
     if body.archivos:
-        local_paths = {a.get("docId"): a.get("localPath", "") for a in (radicacion.get("archivos") or [])}
-        for a in body.archivos:
-            a["localPath"] = local_paths.get(a.get("docId"), "")
-        radicacion["archivos"] = body.archivos
+        radicacion["archivos"] = _fusionar_archivos(radicacion.get("archivos"), body.archivos)
         radicacion["documentosOk"] = sum(
             1 for a in body.archivos if a.get("status") in ("CUMPLE", "N/A")
         )
@@ -1218,6 +1245,52 @@ async def reubicar_archivos_sharepoint(aplicar: bool = False, usuario: dict = De
         raise HTTPException(status_code=500, detail=f"No se pudo reubicar: {e}")
 
 
+@app.post("/api/m365/reconstruir-expedientes")
+async def reconstruir_expedientes(
+    aplicar: bool = False,
+    numero: Optional[str] = None,
+    usuario: dict = Depends(requerir_interventor),
+):
+    if not graph_service:
+        raise HTTPException(status_code=503, detail="Integración Microsoft 365 no configurada en el servidor.")
+    objetivos = [
+        r for r in radicaciones_db
+        if r.get("numeroRadicado") and (not numero or r.get("numeroRadicado") == numero)
+    ]
+    detalle = []
+    try:
+        for rad in objetivos:
+            nombres = await graph_service.nombres_del_expediente(rad["numeroRadicado"])
+            cambios = graph_service.planear_reconstruccion(rad, nombres)
+            if not cambios:
+                continue
+            detalle.append({"numeroRadicado": rad["numeroRadicado"], "cambios": cambios})
+            if aplicar:
+                graph_service.aplicar_reconstruccion(rad, cambios)
+                rad["documentosOk"] = sum(1 for a in rad["archivos"] if a.get("status") in ("CUMPLE", "N/A"))
+                rad["porcentajeCumplimiento"] = calcular_porcentaje(rad["archivos"])
+                rad["fechaActualizacion"] = datetime.now(timezone.utc).isoformat()
+                rad.setdefault("historial", []).append({
+                    "estado": rad.get("estado", ""),
+                    "fecha": datetime.now(timezone.utc).isoformat(),
+                    "usuario": (usuario.get("email") or "").lower().strip(),
+                    "usuarioNombre": usuario.get("name") or "",
+                    "observaciones": f"Reconstrucción desde SharePoint: {len(cambios)} archivo(s) recuperados en el registro",
+                })
+        if aplicar and detalle:
+            guardar_db()
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"No se pudo reconstruir: {e}")
+    return {
+        "ok": True,
+        "aplicado": aplicar,
+        "radicados": len(detalle),
+        "cambios": sum(len(d["cambios"]) for d in detalle),
+        "detalle": detalle,
+    }
+
+
 @app.patch("/api/radicacion/{identificador}/metadata")
 async def actualizar_metadata(identificador: str, body: ActualizacionMetadata, usuario: dict = Depends(requerir_usuario)):
     radicacion = None
@@ -1232,10 +1305,7 @@ async def actualizar_metadata(identificador: str, body: ActualizacionMetadata, u
     if body.metadata:
         radicacion["metadata"].update(body.metadata)
     if body.archivos:
-        local_paths = {a.get("docId"): a.get("localPath", "") for a in (radicacion.get("archivos") or [])}
-        for a in body.archivos:
-            a["localPath"] = local_paths.get(a.get("docId"), "")
-        radicacion["archivos"] = body.archivos
+        radicacion["archivos"] = _fusionar_archivos(radicacion.get("archivos"), body.archivos)
         radicacion["documentosOk"] = sum(
             1 for a in body.archivos if a.get("status") in ("CUMPLE", "N/A")
         )
@@ -1384,6 +1454,27 @@ async def verificar_msal(request: Request):
     }
 
 
+async def _recuperar_de_sharepoint(radicacion, archivo, sub, ruta_local):
+    if not graph_service:
+        return None
+    contenido = await graph_service.descargar_archivo(radicacion.get("numeroRadicado"), archivo, sub)
+    if contenido and ruta_local:
+        try:
+            ruta_local.parent.mkdir(parents=True, exist_ok=True)
+            ruta_local.write_bytes(contenido)
+        except Exception as e:
+            print(f"[VISOR] No se pudo restaurar {ruta_local} en disco: {e}")
+    return contenido
+
+
+def _respuesta_archivo(contenido, media_type, nombre):
+    return Response(
+        content=contenido,
+        media_type=media_type or "application/pdf",
+        headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(nombre or 'documento.pdf')}"},
+    )
+
+
 @app.get("/api/files/view/{radicacion_id}/{doc_id}")
 async def ver_archivo(
     radicacion_id: str,
@@ -1403,17 +1494,20 @@ async def ver_archivo(
                     continue
                 if subId is not None:
                     sf = next((s for s in (a.get("subFiles") or []) if str(s.get("subId")) == str(subId)), None)
-                    if not sf or not sf.get("localPath"):
+                    if not sf:
                         raise HTTPException(status_code=404, detail="Sub-archivo no encontrado")
-                    sf_path = Path(sf["localPath"])
-                    if not sf_path.exists():
-                        raise HTTPException(status_code=404, detail="Sub-archivo no encontrado en disco")
-                    return FileResponse(
-                        path=str(sf_path),
-                        media_type=sf.get("fileType", "application/pdf"),
-                        filename=sf.get("fileName", "documento.pdf"),
-                        content_disposition_type="inline",
-                    )
+                    sf_path = Path(sf["localPath"]) if sf.get("localPath") else None
+                    if sf_path and sf_path.exists():
+                        return FileResponse(
+                            path=str(sf_path),
+                            media_type=sf.get("fileType", "application/pdf"),
+                            filename=sf.get("fileName", "documento.pdf"),
+                            content_disposition_type="inline",
+                        )
+                    contenido = await _recuperar_de_sharepoint(r, a, sf, sf_path)
+                    if contenido is None:
+                        raise HTTPException(status_code=404, detail="Sub-archivo no encontrado en disco ni en SharePoint")
+                    return _respuesta_archivo(contenido, sf.get("fileType"), sf.get("fileName"))
                 if a.get("docId") == doc_id and a.get("localPath"):
                     file_path = Path(a["localPath"])
                     if file_path.exists():
@@ -1423,8 +1517,14 @@ async def ver_archivo(
                             filename=a.get("fileName", "documento.pdf"),
                             content_disposition_type="inline",
                         )
-                    raise HTTPException(status_code=404, detail="Archivo no encontrado en disco")
+                    contenido = await _recuperar_de_sharepoint(r, a, None, file_path)
+                    if contenido is None:
+                        raise HTTPException(status_code=404, detail="Archivo no encontrado en disco ni en SharePoint")
+                    return _respuesta_archivo(contenido, a.get("fileType"), a.get("fileName"))
                 if a.get("docId") == doc_id and a.get("fileName"):
+                    contenido = await _recuperar_de_sharepoint(r, a, None, None)
+                    if contenido is not None:
+                        return _respuesta_archivo(contenido, a.get("fileType"), a.get("fileName"))
                     return {
                         "fileName": a["fileName"],
                         "fileType": a.get("fileType", "application/pdf"),
