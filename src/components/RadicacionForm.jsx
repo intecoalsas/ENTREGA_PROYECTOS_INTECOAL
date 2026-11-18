@@ -279,11 +279,31 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
 
   const allDocs = [...DOCUMENT_CATALOG, ...customDocs];
   const totalDocs = allDocs.length;
-  const previosCount = Object.keys(archivosPrevios).length;
-  const attachedCount = Object.keys(selectedFiles).length;
-  const naCount = naDocs.length;
-  const totalCompleted = attachedCount + naCount + previosCount;
-  const percentage = Math.round((totalCompleted / totalDocs) * 100);
+
+  // CEAP: se da por completo cuando están sus 4 sub-archivos (nuevos o ya cargados)
+  const ceapDoc = DOCUMENT_CATALOG.find(d => d.hasSubFiles);
+  const ceapCompleto = (() => {
+    if (!ceapDoc) return false;
+    const subs = selectedSubFiles[ceapDoc.id] || {};
+    const subsPrevios = (archivosPrevios[ceapDoc.id]?.subFiles || [])
+      .filter(s => s.status === 'CUMPLE' || s.status === 'N/A')
+      .map(s => s.subId);
+    return (ceapDoc.subFiles || []).every(sf => subs[sf.subId] || subsPrevios.includes(sf.subId));
+  })();
+
+  // Cada documento se cuenta una sola vez: con archivo nuevo, ya cargado (CUMPLE),
+  // marcado N/A, o CEAP completo por sub-archivos
+  const tieneArchivo = (docId) =>
+    Boolean(selectedFiles[docId]) ||
+    Boolean(archivosPrevios[docId] && archivosPrevios[docId].status === 'CUMPLE');
+  const esNa = (docId) => naDocs.map(Number).includes(Number(docId));
+  const esCeapCompleto = (docId) =>
+    Boolean(ceapDoc && ceapCompleto && Number(docId) === Number(ceapDoc.id));
+
+  const attachedCount = allDocs.filter(d => tieneArchivo(d.id) || esCeapCompleto(d.id)).length;
+  const naCount = allDocs.filter(d => esNa(d.id) && !tieneArchivo(d.id) && !esCeapCompleto(d.id)).length;
+  const totalCompleted = attachedCount + naCount;
+  const percentage = totalDocs ? Math.round((totalCompleted / totalDocs) * 100) : 0;
 
   const missingMandatory = allDocs.filter(d => {
     // Sub-archivos (CEAP): los 4 deben estar cargados para darlo por completo
@@ -1419,9 +1439,8 @@ export const RadicacionForm = ({ onSuccess, onCancel, currentUser, filingToEdit 
                           </div>
                         </div>
 
-                        <div className="mt-3 text-[11px] text-gray-300 border-t border-gray-800 pt-2 flex items-center justify-between">
+                        <div className="mt-3 text-[11px] text-gray-300 border-t border-gray-800 pt-2">
                           <span>Ítems Físicos: <strong className="text-white">{elementos.length}</strong></span>
-                          <span>Carga en SharePoint: <strong className="text-[#D9CF43]">al aprobar el radicado</strong></span>
                         </div>
                       </div>
                     </div>
