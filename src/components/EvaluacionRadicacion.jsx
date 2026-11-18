@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { DOCUMENT_CATALOG } from '../data/documentsCatalog';
 import { formatNameFromEmail } from '../lib/msalConfig';
+
+const subArchivosOrdenados = (item) =>
+  (item.subFiles || [])
+    .filter(sf => sf.fileName)
+    .sort((a, b) => String(a.subId || '').localeCompare(String(b.subId || '')));
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -732,7 +737,7 @@ export const EvaluacionRadicacion = ({
                       )}
                       {(item.subFiles || []).filter(sf => sf.fileName).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 w-full pt-1">
-                          {(item.subFiles || []).filter(sf => sf.fileName).map((sf, k) => (
+                          {subArchivosOrdenados(item).map((sf, k) => (
                             <button
                               key={sf.subId || k}
                               type="button"
@@ -758,7 +763,7 @@ export const EvaluacionRadicacion = ({
                           <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block">
                             Evaluar sub-archivos ({(item.subFiles || []).filter(sf => sf.fileName).length})
                           </span>
-                          {(item.subFiles || []).filter(sf => sf.fileName).map((sf) => (
+                          {subArchivosOrdenados(item).map((sf) => (
                             <div key={`ev-${sf.subId}`} className="bg-white border border-gray-200 rounded-xl p-2.5 grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
                               <div className="lg:col-span-4 min-w-0">
                                 <span className="text-[11px] font-extrabold text-gray-800 break-words">
