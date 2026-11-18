@@ -48,7 +48,7 @@ Los dominios de correo determinan el rol. La función `isRevisorAllowedEmail`/`v
 
 | Rol | Dominio permitido | Permisos |
 |-----|-------------------|----------|
-| **Revisor / Interventor** | `@intecoalsas.com`, `@intecoal.com.co` | Evaluar, dictaminar, firmar informe, sincronizar a SharePoint. |
+| **Revisor / Interventor** | `@intecoalsas.com`, `@intecoal.com.co` | Evaluar, dictaminar, firmar informe, herramientas de mantenimiento de SharePoint. |
 | **Contratista / Creador** | Cualquier correo M365 | Crear radicaciones, subir/corregir archivos, firmar declaración, ver sus radicaciones. |
 
 Reglas de acceso en el frontend:
@@ -121,7 +121,7 @@ application/acad, application/octet-stream
 ## SharePoint
 
 - **SharePoint Online** actúa como respaldo persistente de radicaciones y documentos.
-- **Política de subida:** solo lo **aprobado** (fila + carpetas + archivos) y los formatos solo con su botón **Subir**. Todo corre en background; `m365Synced` refleja el estado real y existe reintento manual (`POST /api/radicacion/{id}/sincronizar`).
+- **Política de subida:** copia en caliente al radicar y al subir/corregir cada documento, y subida completa al aprobar (fila + carpetas + archivos); los formatos solo con su botón **Subir**. Todo corre en background; `m365Synced` refleja el estado real de la subida completa.
 - Los correos y la subida de archivos usan la **Microsoft Graph API** (`backend/grafos.py` → `GraphService`).
 
 ### Permisos de la app de Azure AD (Application)

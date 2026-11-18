@@ -450,28 +450,7 @@ export default function App() {
     }).catch(e => console.warn('Could not sync metadata to backend:', e));
   };
 
-  const [syncingId, setSyncingId] = useState(null);
-
   const [manualOpen, setManualOpen] = useState(false);
-
-  const handleRetrySync = async (record) => {
-    if (!record || syncingId) return;
-    if (!confirm(`¿Reintentar la subida de ${record.numeroRadicado} a SharePoint? Puede tardar 1-3 minutos.`)) return;
-    setSyncingId(record.id);
-    try {
-      const resp = await apiFetch(`/api/radicacion/${record.id}/sincronizar`, { method: 'POST' });
-      const data = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(data?.detail || `El servidor respondió ${resp.status}`);
-      const updated = data.data;
-      setFilings(prev => prev.map(f => f.id === updated.id ? updated : f));
-      setSelectedFiling(prev => (prev && prev.id === updated.id ? updated : prev));
-      alert(`Subida OK: ${record.numeroRadicado} quedó en SharePoint (fila + carpetas + archivos).`);
-    } catch (err) {
-      alert(`No se pudo subir a SharePoint: ${err.message}`);
-    } finally {
-      setSyncingId(null);
-    }
-  };
 
   return (
     <div className={`bg-[#F2F2F2] font-sans text-gray-900 flex flex-col selection:bg-[#D9CF43] selection:text-[#0D0D0D] ${
@@ -578,8 +557,6 @@ export default function App() {
                     setSelectedFiling(record);
                     setActiveTab('recibo');
                   }}
-                  onRetrySync={handleRetrySync}
-                  syncingId={syncingId}
                 />
               )}
 

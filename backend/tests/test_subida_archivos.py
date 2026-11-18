@@ -223,6 +223,90 @@ def test_archivo_registrado_sin_bytes_en_disco_se_reporta_como_perdido(tmp_path,
     assert res["perdidos"] == ["A1"]
 
 
+class _ClienteVerificador:
+    """Sustituye httpx.AsyncClient para responder a la verificación de existencia."""
+
+    def __init__(self, status=200, *a, **k):
+        self.status = status
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def get(self, url, headers=None, params=None):
+        class _R:
+            status_code = self.status
+            text = ""
+        return _R()
+
+
+def test_archivo_ya_en_sharepoint_no_se_cuenta_como_perdido(monkeypatch):
+    """Tras un reinicio, el archivo ya está en SharePoint por la copia en caliente:
+    el reintento de sincronizacion debe considerarlo completo."""
+    import asyncio
+
+    import backend.grafos as grafos
+    from backend.grafos import GraphService
+
+    g = GraphService()
+
+    async def _tok():
+        return "token-falso"
+
+    async def _drive():
+        return "base-falsa"
+
+    async def _carpetas(numero):
+        return None
+
+    monkeypatch.setattr(g, "_obtener_token", _tok)
+    monkeypatch.setattr(g, "_drive_url", _drive)
+    monkeypatch.setattr(g, "_crear_carpeta_proyecto", _carpetas)
+    monkeypatch.setattr(grafos.httpx, "AsyncClient", lambda *a, **k: _ClienteVerificador(200))
+
+    rad = {"numeroRadicado": "RAD-T-SP-OK", "archivos": [
+        {"docId": 1, "docCode": "A1", "fileName": "A1.pdf", "status": "CUMPLE",
+         "localPath": "", "folderPath": "/A_Tecnicos/"},
+        {"docId": 25, "docCode": "CEAP", "fileName": "", "status": "CUMPLE", "localPath": "",
+         "subFiles": [{"subId": "25a", "subCode": "CEAP-A", "subName": "Tarjeta",
+                       "fileName": "tarjeta.pdf", "status": "CUMPLE", "localPath": ""}]},
+    ]}
+    res = asyncio.run(g.subir_expediente_a_sharepoint(rad))
+    assert res["perdidos"] == []
+
+
+def test_archivo_no_en_disco_ni_sharepoint_si_se_cuenta_como_perdido(monkeypatch):
+    import asyncio
+
+    import backend.grafos as grafos
+    from backend.grafos import GraphService
+
+    g = GraphService()
+
+    async def _tok():
+        return "token-falso"
+
+    async def _drive():
+        return "base-falsa"
+
+    async def _carpetas(numero):
+        return None
+
+    monkeypatch.setattr(g, "_obtener_token", _tok)
+    monkeypatch.setattr(g, "_drive_url", _drive)
+    monkeypatch.setattr(g, "_crear_carpeta_proyecto", _carpetas)
+    monkeypatch.setattr(grafos.httpx, "AsyncClient", lambda *a, **k: _ClienteVerificador(404))
+
+    rad = {"numeroRadicado": "RAD-T-NO", "archivos": [
+        {"docId": 1, "docCode": "A1", "fileName": "A1.pdf", "status": "CUMPLE",
+         "localPath": "", "folderPath": "/A_Tecnicos/"},
+    ]}
+    res = asyncio.run(g.subir_expediente_a_sharepoint(rad))
+    assert res["perdidos"] == ["A1"]
+
+
 def test_coincidencia_de_slot_no_mezcla_documentos():
     from backend.grafos import GraphService
 

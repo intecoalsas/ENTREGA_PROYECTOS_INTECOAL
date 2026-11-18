@@ -1193,45 +1193,6 @@ async def actualizar_estado(identificador: str, body: ActualizacionEstado, usuar
     return respuesta
 
 
-@app.post("/api/radicacion/{identificador}/sincronizar")
-async def sincronizar_manual(identificador: str, usuario: dict = Depends(requerir_interventor)):
-    radicacion = next(
-        (
-            r for r in radicaciones_db
-            if r.get("id") == identificador or r.get("numeroRadicado") == identificador
-        ),
-        None,
-    )
-    if not radicacion:
-        raise HTTPException(status_code=404, detail="Radicación no encontrada.")
-    if radicacion.get("estado") != "Aprobado":
-        raise HTTPException(status_code=400, detail="Solo se suben a SharePoint los radicados aprobados.")
-    if not graph_service:
-        raise HTTPException(
-            status_code=503,
-            detail="Integración Microsoft 365 no configurada en el servidor (revise AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, SHAREPOINT_SITE_ID y SHAREPOINT_LIST_ID).",
-        )
-    try:
-        resumen = await asyncio.wait_for(
-            graph_service.guardar_radicacion_en_sharepoint(radicacion), timeout=180
-        )
-        radicacion["m365Synced"] = bool(resumen.get("completo", True))
-        guardar_db()
-        return {"ok": True, "data": radicacion, "detalle": resumen}
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail="La subida tardó más de 3 minutos y se interrumpió. Intente de nuevo con mejor conexión.",
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        radicacion["m365Synced"] = False
-        guardar_db()
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"No se pudo subir a SharePoint: {e}")
-
-
 @app.post("/api/m365/reubicar-archivos")
 async def reubicar_archivos_sharepoint(aplicar: bool = False, usuario: dict = Depends(requerir_interventor)):
     if not graph_service:

@@ -23,7 +23,7 @@
 
 - **Frontend (SPA):** React 19, Vite, Tailwind CSS 4, MSAL `@azure/msal-browser`, `lucide-react`, `motion`, `jszip`, `html-to-image` + `jspdf` (PDF de formatos), `@cadview/react` (visor DXF).
 - **Backend:** FastAPI con httpx (Graph API), python-jose (JWT), python-dotenv.
-- **Persistencia:** JSON local (`backend/data/radicaciones.json`, única fuente de escritura) + **sincronización a SharePoint Online solo al aprobar** (fila + carpetas + archivos) y **formatos solo con su botón Subir**.
+- **Persistencia:** JSON local (`backend/data/radicaciones.json`, única fuente de escritura) + **copia en caliente a SharePoint al radicar y al subir/corregir cada documento** (carpetas y archivos, sin fila en la lista) y **sincronización completa al aprobar** (fila + carpetas + archivos, con reemplazo de versiones sin duplicados); **formatos solo con su botón Subir**.
 - **Tareas en background:** `lanzar_background()` (correos + SharePoint sin bloquear la respuesta) y `vigilar_vencimientos()` (alertas de plazo: cada 1 h evalúa los plazos y, de lunes a viernes entre las 8:00 y 8:59 a.m. hora Colombia, envía **un solo correo** al revisor con el resumen de vencidos y por vencer; los avisos de 8/4 días van incluidos en ese mismo correo y se marcan una sola vez).
 
 ## Estructura del proyecto

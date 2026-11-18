@@ -151,22 +151,20 @@ export const MANUAL_REVISOR = {
       ],
     },
     {
-      titulo: 'Volver a subir a SharePoint',
+      titulo: 'Qué pasa al aprobar',
       pasos: [
-        'En un aprobado que diga Pendiente de subida pulse Reintentar subida.',
-        'Confirme y espere de 1 a 3 minutos sin cerrar.',
-        'Lea el resultado: si dice OK quedó arriba; si falla, el mensaje le dice el motivo (permisos o conexión).',
+        'Al aprobar, el radicado queda como Aprobado y la subida a SharePoint corre en segundo plano.',
+        'Los archivos ya van a SharePoint por su cuenta desde la radicación (copia en caliente por documento).',
       ],
-      nota: 'A SharePoint solo sube lo aprobado. Los formatos solo suben con su botón Subir.',
+      nota: 'No hay que reintentar nada: si un archivo falta en disco, el visor lo recupera desde SharePoint.',
     },
   ],
   faq: [
-    ['¿Cuándo sube a SharePoint?', 'Solo al aprobar (carpetas + archivos). Los formatos solo con su botón Subir.'],
-    ['Un aprobado dice Pendiente de subida, ¿qué hago?', 'Pulse Reintentar subida y lea el motivo si falla.'],
+    ['¿Cuándo sube a SharePoint?', 'Cada archivo se sube al radicar o corregir (copia en caliente), y al aprobar se resube todo el expediente. Los formatos solo con su botón Subir.'],
     ['¿Cómo sabe el contratista qué corregir?', 'Con las notas que usted escriba en cada documento y archivo pequeño. Él las ve al corregir.'],
     ['¿A quién le llegan los avisos de fechas?', 'Solo a usted: a los 8 y 4 días, y cada mañana a las 8 si se vence. Al contratista no le llega nada de eso.'],
     ['Guardé avance, ¿ya le avisó al contratista?', 'No. El borrador no avisa ni cambia el estado. Solo avisa al dar el resultado final.'],
-    ['Aprobé pero no aparece en SharePoint, ¿qué hago?', 'Espere unos segundos (sube en segundo plano) y recargue. Si sigue pendiente, use Reintentar subida.'],
+    ['Aprobé pero no aparece en SharePoint, ¿qué hago?', 'Espere unos segundos y recargue: la subida continúa en segundo plano. Si un archivo faltara, el visor lo recupera desde SharePoint.'],
   ],
   problemas: [
     ['"Falta la firma del revisor"', 'Ponga su firma antes de dar el resultado final.'],

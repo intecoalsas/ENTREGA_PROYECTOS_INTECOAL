@@ -39,7 +39,7 @@
 | `historial` | array | Sí | Ver HISTORIAL. |
 | `formatos` | array | No | Ver FORMATO. |
 | `creadorEmail` / `creadorName` | string | Sí | Identidad del JWT (no del formulario). Índice lógico de propiedad. |
-| `m365Synced` | bool | No | `true` solo si SharePoint confirmó. |
+| `m365Synced` | bool | No | `true` solo si la subida a SharePoint quedó **completa** (sin errores y sin archivos registrados sin bytes en disco); si faltó algo queda `false` con detalle en logs. |
 | `notifVencimiento` | objeto | No | `{"8": ISO, "4": ISO, "diaria": ISO}` avisos enviados. |
 
 ## METADATA (dentro de RADICACION)
@@ -61,7 +61,7 @@
 | `fileName` / `fileSize` / `fileType` / `uploadDate` | string/int | Archivo aportado (vacío si pendiente). |
 | `status` | string | `PENDIENTE` \| `CUMPLE` \| `NO CUMPLE` \| `N/A`. |
 | `notes` | string | Observación del revisor. |
-| `folderPath` | string | Destino SharePoint (`/Documentos_Radicacion/{RAD}/{grupo}/`). |
+| `folderPath` | string | Destino SharePoint (`/Documentos_Radicacion/{RAD}/{grupo}/`). **Informativo:** la carpeta real al subir sale del `folderGroup` del catálogo por `docId`. |
 | `esManual` | bool | Documento agregado por el contratista. |
 | `localPath` | string | **Solo servidor** (ruta disco; el cliente no la impone). |
 | `subFiles` | array | Ver SUBFILE. |
@@ -78,5 +78,6 @@
 ## Archivos en disco y SharePoint
 
 - Local: `backend/uploads/{radicacion.id}/[{docCode}/]{archivo}`.
-- SharePoint: `Documentos_Radicacion/{RAD}/{A_Tecnicos,B_Certificaciones,C_Contractuales,D_Inventario,E_Otros[/Documentos para circuitos exclusivos de AP],F_Documentos_Adicionales}/{orden:02d}_{código}_{original}`; formatos sueltos en la raíz del radicado.
+- SharePoint: `Documentos_Radicacion/{RAD}/{A_Tecnicos,B_Certificaciones,C_Contractuales,D_Inventario,E_Otros[/Documentos para circuitos exclusivos de AP],F_Documentos_Adicionales}/{orden:02d}_{código}_{original}`; la carpeta sale del `folderGroup` del catálogo; sub-archivos: `{código}_{subCode}_{nombre}.{ext}` con la extensión del archivo real (CEAP en su subcarpeta); anexos `{código}_ANEXO-n_{nombre}`; formatos sueltos en la raíz del radicado.
+- Reemplazo de versiones: al subir un documento se borran en su carpeta los archivos del mismo prefijo `NN_CODIGO` con otro nombre (nunca `NN_CODIGO{dígito}` de otro documento).
 - JWT payload: `{sub, email, role, company, name, exp(24h), iat}` HS256.

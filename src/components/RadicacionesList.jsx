@@ -289,34 +289,9 @@ export const RadicacionesList = ({
                         </div>
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${badgeBg}`}>
-                            {filing.estado}
-                          </span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                            filing.estado === 'Aprobado' && filing.m365Synced
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : filing.estado === 'Aprobado'
-                              ? 'bg-amber-100 text-amber-800'
-                              : filing.estado === 'En Revisión'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {filing.estado === 'Aprobado'
-                              ? (filing.m365Synced ? 'Cargado en SharePoint' : 'Pendiente de subida')
-                              : filing.estado === 'En Revisión' ? 'En Revisión' : 'Pendiente de Aprobación'}
-                          </span>
-                          {userRole === 'interventor' && filing.estado === 'Aprobado' && !filing.m365Synced && onRetrySync && (
-                            <button
-                              onClick={() => onRetrySync(filing)}
-                              disabled={syncingId === filing.id}
-                              className="bg-sky-100 hover:bg-sky-200 disabled:opacity-50 text-sky-900 font-bold text-[10px] px-2 py-0.5 rounded border border-sky-300 transition-colors cursor-pointer"
-                              title="Subir ahora a SharePoint (muestra el motivo si falla)"
-                            >
-                              {syncingId === filing.id ? 'Subiendo…' : 'Reintentar subida'}
-                            </button>
-                          )}
-                        </div>
+                        <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${badgeBg}`}>
+                          {filing.estado}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">
                         {new Date(filing.fechaRadicacion).toLocaleDateString()}

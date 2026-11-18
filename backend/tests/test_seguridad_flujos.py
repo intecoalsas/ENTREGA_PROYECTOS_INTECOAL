@@ -112,9 +112,6 @@ def test_estado_sin_aprobar_no_toca_sharepoint(cliente, monkeypatch):
     assert r.status_code == 200
     time.sleep(1.5)  
     assert espia.guardados == [], "Graph fue tocado sin Aprobado"
-    r = cliente.post("/api/radicacion/RAD-T-002/sincronizar", headers=hi)
-    assert r.status_code == 400
-    assert espia.guardados == []
 
 
 def test_aprobado_si_sube_una_vez(cliente, monkeypatch):

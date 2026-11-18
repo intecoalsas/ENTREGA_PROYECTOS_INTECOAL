@@ -284,7 +284,7 @@ export const EvaluacionRadicacion = ({
       } catch { filingFinal = updatedFiling; }
 
       if (estadoFinal === 'Aprobado') {
-        setSaveSuccessMsg(`¡Radicado ${filingFinal.numeroRadicado} APROBADO y notificado! La subida a SharePoint (carpetas + archivos) continúa en segundo plano. Si no aparece en SharePoint, use «Reintentar subida» en el Historial. Volviendo al Historial de Radicaciones…`);
+        setSaveSuccessMsg(`¡Radicado ${filingFinal.numeroRadicado} APROBADO y notificado! La subida a SharePoint (carpetas + archivos) continúa en segundo plano. Volviendo al Historial de Radicaciones…`);
       } else {
         setSaveSuccessMsg(`¡Evaluación de ${filingFinal.numeroRadicado} finalizada y notificada! (A SharePoint solo se sube al aprobar). Volviendo al Historial de Radicaciones…`);
       }

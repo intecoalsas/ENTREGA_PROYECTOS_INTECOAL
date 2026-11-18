@@ -196,7 +196,7 @@ Se puede añadir en un archivo `public/_redirects` o como redirect en Netlify. S
 
 ### Render en frío (plan gratuito)
 **Síntoma:** la primera petición tras inactividad falla o tarda ~1 min.
-**Solución:** reintentar pasado un minuto. El frontend espera hasta 3 min en la radicación y el reintento de SharePoint hasta 3 min; si falla, muestra el motivo real en lugar de un error genérico.
+**Solución:** reintentar pasado un minuto. El frontend espera hasta 3 min en la radicación; si falla, muestra el motivo real en lugar de un error genérico.
 
 ### Login M365 falla
 **Síntoma:** `timed_out` / `block_nested_popups`.
@@ -217,7 +217,7 @@ Comprobación rápida de CORS desde la consola del navegador: si `lista` está b
 ### Se perdieron radicados creados en producción
 **Causa:** Render (plan gratuito) **no tiene disco persistente** — `render.yaml` no declara `disks`, así que el archivo `backend/data/radicaciones.json` vuelve al estado del repositorio en **cada redespliegue o reinicio**.
 **Solución automática (activa):** en **cada guardado** el backend sube `radicaciones.json` como respaldo al archivo `Portal_BaseDeDatos/radicaciones_backup.json` en SharePoint; al arrancar con la base vacía, **restaura todos los radicados** (aprobados y pendientes, con historial, evaluación y firmas) antes de intentar la carga por lista. El respaldo ocurre en background con coalescencia (2 s) y un envío final al cerrar el servicio; si SharePoint falla en un guardado, se reintenta en el siguiente.
-**Solución definitiva (opcional):** montar un disco persistente en Render (plan Starter) y mover `DATA_FILE` ahí. Recuerda que la subida de carpetas/archivos a SharePoint sigue ocurriendo **solo al aprobar**; el archivo de respaldo es una copia interna de la base, no un radicado.
+**Solución definitiva (opcional):** montar un disco persistente en Render (plan Starter) y mover `DATA_FILE` ahí. La **copia en caliente** ya sube a SharePoint cada archivo al radicar o subir/corregir (y el visor recupera desde SharePoint lo que falte en disco), pero el disco persistente refuerza; el archivo de respaldo es una copia interna de la base, no un radicado.
 
 ### Subidas grandes fallan (DWG/DXF pesados)
 **Síntoma:** la subida se corta sin mensaje claro o responde `500`.

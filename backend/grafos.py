@@ -224,9 +224,6 @@ class GraphService:
             return "E_Otros"
         return "F_Documentos_Adicionales"
 
-    async def sincronizar_a_sharepoint(self, radicacion):
-        return await self.guardar_radicacion_en_sharepoint(radicacion)
-
     @staticmethod
     def _filtro_seguro(valor):
         return str(valor or "").replace("'", "''")
@@ -338,6 +335,14 @@ class GraphService:
             print(f"[GRAPH] Respaldo de BD no disponible ({resp.status_code}): {rel}")
             return None
 
+    async def _existe_en_sharepoint(self, cliente, headers_auth, base, rel):
+        try:
+            resp = await cliente.get(f"{base}/root:/{rel}", headers=headers_auth)
+            return resp.status_code == 200
+        except Exception as e:
+            print(f"[GRAPH] Error verificando {rel}: {e}")
+            return False
+
     async def _subir_archivos(self, radicacion, codigo, solo_doc_id=None):
         token = await self._obtener_token()
         headers_auth = {"Authorization": f"Bearer {token}"}
@@ -362,12 +367,17 @@ class GraphService:
                     sf_local = (sf.get("localPath") or "").strip()
                     if not sf_local:
                         if sf.get("fileName"):
-                            perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
+                            rel_esperado = self._ruta_archivo(codigo, a, sf)
+                            if not await self._existe_en_sharepoint(cliente, headers_auth, base, rel_esperado):
+                                perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
                     sf_path = Path(sf_local)
                     if not sf_path.exists():
                         print(f"[GRAPH] Sub-archivo local no encontrado: {sf_local}")
-                        perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
+                        rel_esperado = self._ruta_archivo(codigo, a, sf)
+                        if not await self._existe_en_sharepoint(cliente, headers_auth, base, rel_esperado):
+                            print(f"[GRAPH] Tampoco en SharePoint: {rel_esperado}")
+                            perdidos.append(f"{a.get('docCode', 'DOC')}/{sf.get('subCode') or sf.get('subId')}")
                         continue
                     try:
                         sf_cont = sf_path.read_bytes()
@@ -392,13 +402,18 @@ class GraphService:
                     continue
                 if not local_path:
                     print(f"[GRAPH] Sin localPath (solo metadato), se omite: {a.get('docCode')}")
-                    perdidos.append(a.get("docCode", "DOC"))
+                    rel_esperado = self._ruta_archivo(codigo, a)
+                    if not await self._existe_en_sharepoint(cliente, headers_auth, base, rel_esperado):
+                        perdidos.append(a.get("docCode", "DOC"))
                     omitidos += 1
                     continue
                 file_path = Path(local_path)
                 if not file_path.exists():
                     print(f"[GRAPH] Archivo local no encontrado: {local_path}")
-                    perdidos.append(a.get("docCode", "DOC"))
+                    rel_esperado = self._ruta_archivo(codigo, a)
+                    if not await self._existe_en_sharepoint(cliente, headers_auth, base, rel_esperado):
+                        print(f"[GRAPH] Tampoco en SharePoint: {rel_esperado}")
+                        perdidos.append(a.get("docCode", "DOC"))
                     omitidos += 1
                     continue
                 try:
