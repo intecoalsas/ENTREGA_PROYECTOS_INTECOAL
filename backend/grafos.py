@@ -1094,6 +1094,9 @@ class GraphService:
             return f"{carpeta}/{self._nombre_ordenado(a)}"
         sf_nombre = self._sanitizar_nombre(sub.get("subName") or sub.get("fileName") or "anexo")
         sf_code = sub.get("subCode") or "ANEXO"
+        ext = os.path.splitext(sub.get("fileName") or "")[1].lower() or ".pdf"
+        if not sf_nombre.lower().endswith(ext):
+            sf_nombre = f"{sf_nombre}{ext}"
         sf_base = f"{self._sanitizar_nombre(a.get('docCode', 'DOC'))}_{self._sanitizar_nombre(sf_code)}_{sf_nombre}"
         return f"{carpeta}/{sf_base}"
 
@@ -1127,6 +1130,57 @@ class GraphService:
         if resp.status_code != 200:
             raise Exception(f"SharePoint respondió {resp.status_code} al listar {carpeta_rel}")
         return [i.get("name", "") for i in resp.json().get("value", []) if "file" in i]
+
+    async def listar_archivos_con_id(self, carpeta_rel):
+        token = await self._obtener_token()
+        headers_auth = {"Authorization": f"Bearer {token}"}
+        base = await self._drive_url()
+        async with httpx.AsyncClient(timeout=60.0) as cliente:
+            resp = await cliente.get(
+                f"{base}/root:/{carpeta_rel}:/children",
+                headers=headers_auth,
+                params={"$select": "id,name,file", "$top": "999"},
+            )
+        if resp.status_code == 404:
+            return []
+        if resp.status_code != 200:
+            raise Exception(f"SharePoint respondió {resp.status_code} al listar {carpeta_rel}")
+        return [
+            {"id": i["id"], "name": i.get("name", "")}
+            for i in resp.json().get("value", []) if "file" in i
+        ]
+
+    async def renombrar_item(self, item_id, nombre_nuevo):
+        token = await self._obtener_token()
+        headers_json = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        base = await self._drive_url()
+        async with httpx.AsyncClient(timeout=60.0) as cliente:
+            resp = await cliente.patch(f"{base}/items/{item_id}", headers=headers_json, json={"name": nombre_nuevo})
+        return resp.status_code
+
+    @staticmethod
+    def planear_correccion_ceap(radicacion, items):
+        numero = radicacion.get("numeroRadicado", "")
+        ceap_doc = next((d for d in CATALOGO_21_DOCUMENTOS if d.get("hasSubFiles")), None)
+        if not ceap_doc:
+            return []
+        registro = next((a for a in radicacion.get("archivos") or [] if a.get("docId") == ceap_doc["id"]), None)
+        if not registro:
+            return []
+        por_sub = {str(s.get("subId")): s for s in (registro.get("subFiles") or [])}
+        cambios = []
+        for sub in ceap_doc.get("subFiles", []):
+            ext = os.path.splitext((por_sub.get(str(sub["subId"])) or {}).get("fileName") or "")[1]
+            if not ext:
+                continue
+            prefijo = f"{ceap_doc['code']}_{sub['subCode']}_".lower()
+            for it in items:
+                nombre = it.get("name", "")
+                if not nombre.lower().startswith(prefijo) or os.path.splitext(nombre)[1]:
+                    continue
+                cambios.append({"numero": numero, "id": it["id"], "nombreActual": nombre,
+                                "nombreNuevo": f"{nombre}{ext.lower()}"})
+        return cambios
 
     async def nombres_del_expediente(self, numero):
         carpetas = {f"{self.RAIZ}/{numero}/{g}" for g in self.SUBCARPETAS}

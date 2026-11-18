@@ -1291,6 +1291,44 @@ async def reconstruir_expedientes(
     }
 
 
+@app.post("/api/m365/corregir-nombres-ceap")
+async def corregir_nombres_ceap(
+    aplicar: bool = False,
+    numero: Optional[str] = None,
+    usuario: dict = Depends(requerir_interventor),
+):
+    if not graph_service:
+        raise HTTPException(status_code=503, detail="Integración Microsoft 365 no configurada en el servidor.")
+    objetivos = [
+        r for r in radicaciones_db
+        if r.get("numeroRadicado") and (not numero or r.get("numeroRadicado") == numero)
+    ]
+    detalle = []
+    try:
+        for rad in objetivos:
+            carpeta = f"{graph_service.RAIZ}/{rad['numeroRadicado']}/E_Otros/{graph_service.CEAP_SUBCARPETA}"
+            items = await graph_service.listar_archivos_con_id(carpeta)
+            cambios = graph_service.planear_correccion_ceap(rad, items)
+            for c in cambios:
+                c["status"] = None
+                if aplicar:
+                    c["status"] = await graph_service.renombrar_item(c["id"], c["nombreNuevo"])
+                    print(f"[GRAPH] CEAP renombrado {c['nombreActual']} -> {c['nombreNuevo']}: {c['status']}")
+                c.pop("id", None)
+            if cambios:
+                detalle.append({"numeroRadicado": rad["numeroRadicado"], "cambios": cambios})
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"No se pudo corregir: {e}")
+    return {
+        "ok": True,
+        "aplicado": aplicar,
+        "radicados": len(detalle),
+        "cambios": sum(len(d["cambios"]) for d in detalle),
+        "detalle": detalle,
+    }
+
+
 @app.patch("/api/radicacion/{identificador}/metadata")
 async def actualizar_metadata(identificador: str, body: ActualizacionMetadata, usuario: dict = Depends(requerir_usuario)):
     radicacion = None

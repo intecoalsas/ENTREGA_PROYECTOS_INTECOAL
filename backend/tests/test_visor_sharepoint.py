@@ -58,7 +58,7 @@ def test_ruta_de_descarga_es_la_misma_que_la_de_subida():
     ceap = {"docId": 25, "docCode": "CEAP", "fileName": ""}
     sub = {"subId": "25a", "subCode": "CEAP-A", "subName": "Tarjeta"}
     assert g._ruta_archivo("RAD-1", ceap, sub) == (
-        "Documentos_Radicacion/RAD-1/E_Otros/Documentos para circuitos exclusivos de AP/CEAP_CEAP-A_Tarjeta"
+        "Documentos_Radicacion/RAD-1/E_Otros/Documentos para circuitos exclusivos de AP/CEAP_CEAP-A_Tarjeta.pdf"
     )
 
 
