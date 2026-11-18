@@ -1290,6 +1290,48 @@ async def corregir_nombres_ceap(
     }
 
 
+@app.post("/api/m365/vaciar-radicados")
+async def vaciar_radicados(confirmar: bool = False, usuario: dict = Depends(requerir_interventor)):
+    if not graph_service:
+        raise HTTPException(status_code=503, detail="Integración Microsoft 365 no configurada en el servidor.")
+    if not confirmar:
+        return {
+            "ok": True,
+            "confirmado": False,
+            "total": len(radicaciones_db),
+            "a_eliminar": [
+                {"numeroRadicado": r.get("numeroRadicado"), "estado": r.get("estado")}
+                for r in radicaciones_db
+            ],
+        }
+    objetivos = list(radicaciones_db)
+    fallos = []
+    for r in objetivos:
+        numero = r.get("numeroRadicado", "")
+        try:
+            await graph_service.eliminar_radicacion_de_sharepoint(numero)
+            await graph_service.eliminar_carpeta_radicado(numero)
+        except Exception as e:
+            fallos.append({"numeroRadicado": numero, "error": str(e)})
+            traceback.print_exc()
+        shutil.rmtree(UPLOADS_DIR / r.get("id", ""), ignore_errors=True)
+    radicaciones_db.clear()
+    guardar_db()
+    respaldo = False
+    try:
+        respaldo = bool(await graph_service.subir_backup_db(DATA_FILE.read_bytes()))
+    except Exception as e:
+        print(f"[VACIAR] Error subiendo respaldo vacío: {e}")
+    print(f"[VACIAR] Base vaciada: {len(objetivos)} radicados, fallos={len(fallos)}")
+    return {
+        "ok": True,
+        "confirmado": True,
+        "eliminados": len(objetivos),
+        "fallos": fallos,
+        "respaldo": respaldo,
+    }
+
+
 @app.patch("/api/radicacion/{identificador}/metadata")
 async def actualizar_metadata(identificador: str, body: ActualizacionMetadata, usuario: dict = Depends(requerir_usuario)):
     radicacion = None

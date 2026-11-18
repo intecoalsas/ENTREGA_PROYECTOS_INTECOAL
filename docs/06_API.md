@@ -231,6 +231,20 @@ Actualiza el estado y (opcionalmente) metadata/archivos de una radicación.
 - Si `estado` cambia a `Aprobado`/`Con Observaciones` → correo de resultado al **contratista** (`enviar_correo_estado`).
 - Si `estado` cambia **a `En Revisión`** (desde otro estado) → correo al **revisor** (`enviar_correo_reesubido_revisor`) y correo de confirmación de subida al **contratista** (`enviar_correo_reenvio_contratista`).
 
+### POST /api/m365/vaciar-radicados
+
+Herramienta de mantenimiento (**solo revisor**): vacía la base del portal y borra en SharePoint las filas de la lista y las carpetas `Documentos_Radicacion/{RAD}` de cada radicado, además de sus archivos locales. Después sube el respaldo vacío a SharePoint, de modo que al reiniciar el servidor no se restaure nada. Por defecto **no borra nada**: devuelve la lista de radicados que se eliminarían. Con `?confirmar=true` ejecuta el vaciado total.
+
+```jsonc
+// 200 (reporte)
+{ "ok": true, "confirmado": false, "total": 3, "a_eliminar": [ { "numeroRadicado": "RAD-2026-001", "estado": "Aprobado" } ] }
+
+// 200 (aplicado)
+{ "ok": true, "confirmado": true, "eliminados": 3, "fallos": [], "respaldo": true }
+```
+
+> Es destructivo e irreversible (los archivos de SharePoint van a la papelera del sitio). Tras vaciar, el consecutivo vuelve a empezar en `RAD-2026-001`.
+
 ### PATCH /api/radicacion/{identificador}/metadata
 
 Actualiza metadatos, archivos u observaciones de una radicación sin cambiar necesariamente el estado.

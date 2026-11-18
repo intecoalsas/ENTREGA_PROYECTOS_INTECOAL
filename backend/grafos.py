@@ -1327,6 +1327,18 @@ class GraphService:
                         plan.append(movimiento)
         return {"aplicar": aplicar, "total": len(plan), "movimientos": plan}
 
+    async def eliminar_carpeta_radicado(self, numero):
+        token = await self._obtener_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base = await self._drive_url()
+        async with httpx.AsyncClient(timeout=60.0) as cliente:
+            resp = await cliente.delete(f"{base}/root:/{self.RAIZ}/{numero}", headers=headers)
+        if resp.status_code in (200, 202, 204, 404):
+            print(f"[GRAPH] Carpeta de {numero} eliminada de SharePoint: {resp.status_code}")
+            return True
+        print(f"[GRAPH] Error eliminando carpeta de {numero}: {resp.status_code} {resp.text[:200]}")
+        return False
+
     async def eliminar_radicacion_de_sharepoint(self, numero):
         token = await self._obtener_token()
         headers = {"Authorization": f"Bearer {token}"}
